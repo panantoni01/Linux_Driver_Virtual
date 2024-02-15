@@ -1,0 +1,12 @@
+using sysbus
+mach create
+machine LoadPlatformDescription @scripts/platform.repl
+
+showAnalyzer uart
+
+sysbus LoadBinary @build/linux/arch/riscv/boot/Image 0x40000000
+sysbus LoadBinary @build/rv32.dtb 0x40ef0000
+sysbus LoadBinary @build/opensbi/platform/litex/vexriscv/firmware/fw_jump.bin 0x40f00000
+sysbus LoadBinary @build/buildroot/images/rootfs.cpio 0x42000000
+
+cpu PC 0x40f00000
