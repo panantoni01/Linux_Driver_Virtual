@@ -11,7 +11,7 @@ build-buildroot:
 	${MAKE} -C ${BUILDROOT_SOURCE} O=${BUILDROOT_BUILD} -j${NPROC}
 
 build-linux:
-	git submodule update --init ${LINUX_SOURCE}
+	git submodule update --depth 1 --init ${LINUX_SOURCE}
 	mkdir -p ${LINUX_BUILD}
 	cp ${TOPDIR}/config/linux_config ${LINUX_BUILD}/.config
 	${MAKE} -C ${LINUX_SOURCE} O=${LINUX_BUILD} -j${NPROC}
