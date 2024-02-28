@@ -9,6 +9,6 @@ sysbus LoadBinary @build/rv32.dtb 0x40ef0000
 sysbus LoadBinary @build/opensbi/platform/litex/vexriscv/firmware/fw_jump.bin 0x40f00000
 sysbus LoadBinary @build/buildroot/images/rootfs.cpio 0x42000000
 
-virtio LoadImage @drive.img true
+virtio LoadImage @build/drive.img true
 
 cpu PC 0x40f00000

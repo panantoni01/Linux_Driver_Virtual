@@ -25,6 +25,9 @@ build-opensbi:
 		PLATFORM_RISCV_ABI=ilp32 \
 		PLATFORM_RISCV_ISA=rv32ima_zicsr_zifencei
 
+build-virtio:
+	truncate -s 64M ${VIRTIO_BUILD}
+	mkfs.ext4 -d ${TOPDIR}/driver ${VIRTIO_BUILD}
 
 clean-buildroot:
 	rm -rf ${BUILDROOT_BUILD}
@@ -36,7 +39,11 @@ clean-linux:
 clean-opensbi:
 	rm -rf ${OPENSBI_BUILD}
 
+clean-virtio:
+	rm -f ${VIRTIO_BUILD}
+
 clean:
 	rm -rf ${TOPDIR}/build
 
-.PHONY: build-linux build-buildroot build-opensbi clean-linux clean-buildroot clean-opensbi clean
+.PHONY: build-linux build-buildroot build-opensbi build-virtio env
+.PHONY: clean-linux clean-buildroot clean-opensbi clean-virtio clean
