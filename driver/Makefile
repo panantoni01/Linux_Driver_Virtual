@@ -20,5 +20,7 @@ calc_driver.ko: calc_driver.c
 clean:
 	${MAKE} -C ${LINUX_SOURCE} M=${PWD} clean
 	rm -f modules.order Module.symvers *.o calc_driver.ko calc_driver.mod.c calc_driver.mod.o calc_driver.o calc_driver.mod .modules.* .Module.* .calc_driver.*
+	rm -f test_app
+	rm -f ${TOPDIR}/build/*.dtb
 
 .PHONY: clean
