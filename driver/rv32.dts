@@ -83,6 +83,15 @@
 		};
 	};
 
+	calc_driver@100e0000 {
+		compatible = "calc-driver";
+		reg = <0x100e0000 0x20>;
+		status = "okay";
+		interrupt-parent = <&plic>;
+		interrupts = <2>;
+		interrupt-names = "gpio";
+	};
+
 	aliases {
 		serial0 = "/soc/serial@f0001000";
 	};
