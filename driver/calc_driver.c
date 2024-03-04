@@ -13,7 +13,7 @@
 #define CALC_MAX_MINORS 3
 
 
-struct my_device_data {
+struct calc_device_data {
     struct cdev cdev;
     long var;
     unsigned int curr_op;
@@ -21,7 +21,7 @@ struct my_device_data {
 
 static int my_open(struct inode *inode, struct file *file)
 {
-    struct my_device_data *my_data = container_of(inode->i_cdev, struct my_device_data, cdev);
+    struct calc_device_data *my_data = container_of(inode->i_cdev, struct calc_device_data, cdev);
     file->private_data = my_data;
 
     return 0;
@@ -29,7 +29,7 @@ static int my_open(struct inode *inode, struct file *file)
 
 static ssize_t my_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
-    struct my_device_data *my_data = (struct my_device_data *)file->private_data;
+    struct calc_device_data *my_data = (struct calc_device_data *)file->private_data;
     size_t buf_size = count < (sizeof(my_data->var) - *offset) ? count : (sizeof(my_data->var) - *offset);
     
     if(copy_to_user(buf, &my_data->var, sizeof(long)))
@@ -43,7 +43,7 @@ static ssize_t my_write(struct file *file, const char __user *buf, size_t count,
 {
     long num_buf;
     size_t buf_size = count < sizeof(num_buf) ? count : sizeof(num_buf);
-    struct my_device_data *my_data = (struct my_device_data *)file->private_data;
+    struct calc_device_data *my_data = (struct calc_device_data *)file->private_data;
 
     if(copy_from_user(&num_buf, buf, buf_size))
         return -EFAULT;    
@@ -74,7 +74,7 @@ static ssize_t my_write(struct file *file, const char __user *buf, size_t count,
 
 static long my_ioctl (struct file *file, unsigned int cmd, unsigned long arg) 
 {
-    struct my_device_data *my_data = (struct my_device_data *)file->private_data;
+    struct calc_device_data *my_data = (struct calc_device_data *)file->private_data;
     
     switch(cmd) {
         case CALC_IOCTL_RESET:
@@ -105,7 +105,7 @@ const struct file_operations my_fops = {
     .release = my_release
 };
 
-struct my_device_data devs[CALC_MAX_MINORS];
+struct calc_device_data devs[CALC_MAX_MINORS];
 
 static int calc_driver_probe(struct platform_device *pdev)
 {
