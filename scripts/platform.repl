@@ -7,7 +7,12 @@ sram: Memory.MappedMemory @ { sysbus 0x10000000 }
 
 virtio: Storage.VirtIOBlockDevice @ sysbus 0x100d0000 {IRQ -> plic@2}
 
-dummy: Python.PythonPeripheral @ { sysbus 0x100e0000 }
+dummy_1: Python.PythonPeripheral @ { sysbus 0x100e0000 }
+    size: 0x20
+    initable: true
+    filename: "../scripts/calc_periph.py"
+
+dummy_2: Python.PythonPeripheral @ { sysbus 0x100e1000 }
     size: 0x20
     initable: true
     filename: "../scripts/calc_periph.py"

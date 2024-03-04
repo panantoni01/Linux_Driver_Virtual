@@ -81,9 +81,17 @@
 			interrupts = <2>;
 			interrupt-parent = <&plic>;
 		};
-		calc_driver@100e0000 {
+		calc_driver_1@100e0000 {
 			compatible = "calc-driver";
 			reg = <0x100e0000 0x20>;
+			status = "okay";
+			interrupt-parent = <&plic>;
+			interrupts = <2>;
+			interrupt-names = "gpio";
+		};
+		calc_driver_2@100e1000 {
+			compatible = "calc-driver";
+			reg = <0x100e1000 0x20>;
 			status = "okay";
 			interrupt-parent = <&plic>;
 			interrupts = <2>;
