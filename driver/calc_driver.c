@@ -19,51 +19,51 @@ struct calc_device_data {
     unsigned int curr_op;
 };
 
-static int my_open(struct inode *inode, struct file *file)
+static int calc_open(struct inode *inode, struct file *file)
 {
-    struct calc_device_data *my_data = container_of(inode->i_cdev, struct calc_device_data, cdev);
-    file->private_data = my_data;
+    struct calc_device_data *calc_data = container_of(inode->i_cdev, struct calc_device_data, cdev);
+    file->private_data = calc_data;
 
     return 0;
 }
 
-static ssize_t my_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
+static ssize_t calc_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
-    struct calc_device_data *my_data = (struct calc_device_data *)file->private_data;
-    size_t buf_size = count < (sizeof(my_data->var) - *offset) ? count : (sizeof(my_data->var) - *offset);
+    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
+    size_t buf_size = count < (sizeof(calc_data->var) - *offset) ? count : (sizeof(calc_data->var) - *offset);
     
-    if(copy_to_user(buf, &my_data->var, sizeof(long)))
+    if(copy_to_user(buf, &calc_data->var, sizeof(long)))
         return -EFAULT;
 
     *offset += buf_size;
     return buf_size;
 }
 
-static ssize_t my_write(struct file *file, const char __user *buf, size_t count, loff_t *offset) 
+static ssize_t calc_write(struct file *file, const char __user *buf, size_t count, loff_t *offset) 
 {
     long num_buf;
     size_t buf_size = count < sizeof(num_buf) ? count : sizeof(num_buf);
-    struct calc_device_data *my_data = (struct calc_device_data *)file->private_data;
+    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
 
     if(copy_from_user(&num_buf, buf, buf_size))
         return -EFAULT;    
 
-    switch (my_data->curr_op) {
+    switch (calc_data->curr_op) {
         case ADD:
-            my_data->var += num_buf;
+            calc_data->var += num_buf;
             break;
         case SUB:
-            my_data->var -= num_buf;
+            calc_data->var -= num_buf;
             break;
         case MUL:
-            my_data->var *= num_buf;
+            calc_data->var *= num_buf;
             break;
         case DIV:
             if (num_buf == 0) {
                 printk(KERN_ERR"Div0 attempt!\n");
                 return buf_size;
             }
-            my_data->var /= num_buf;
+            calc_data->var /= num_buf;
             break;
         default:
             break;
@@ -72,17 +72,17 @@ static ssize_t my_write(struct file *file, const char __user *buf, size_t count,
     return buf_size;
 }
 
-static long my_ioctl (struct file *file, unsigned int cmd, unsigned long arg) 
+static long calc_ioctl (struct file *file, unsigned int cmd, unsigned long arg) 
 {
-    struct calc_device_data *my_data = (struct calc_device_data *)file->private_data;
+    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
     
     switch(cmd) {
         case CALC_IOCTL_RESET:
-            my_data->var = 0;
+            calc_data->var = 0;
             break;
         case CALC_IOCTL_CHANGE_OP:
-            my_data->curr_op = (unsigned int)arg;
-            if (my_data->curr_op > DIV)
+            calc_data->curr_op = (unsigned int)arg;
+            if (calc_data->curr_op > DIV)
                 return -EINVAL;
             break;
         default:
@@ -91,18 +91,18 @@ static long my_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
     return 0;
 }
 
-static int my_release (struct inode *inode, struct file *file)
+static int calc_release (struct inode *inode, struct file *file)
 {
     return 0;
 }
 
-const struct file_operations my_fops = {
+const struct file_operations calc_fops = {
     .owner = THIS_MODULE,
-    .open = my_open,
-    .read = my_read,
-    .write = my_write,
-    .unlocked_ioctl = my_ioctl,
-    .release = my_release
+    .open = calc_open,
+    .read = calc_read,
+    .write = calc_write,
+    .unlocked_ioctl = calc_ioctl,
+    .release = calc_release
 };
 
 struct calc_device_data devs[CALC_MAX_MINORS];
@@ -115,7 +115,7 @@ static int calc_driver_probe(struct platform_device *pdev)
         return err;
 
     for(i = 0; i < CALC_MAX_MINORS; i++) {
-        cdev_init(&devs[i].cdev, &my_fops);
+        cdev_init(&devs[i].cdev, &calc_fops);
         cdev_add(&devs[i].cdev, MKDEV(CALC_MAJOR, i), 1);
         devs[i].var = 0;
         devs[i].curr_op = ADD;
