@@ -8,9 +8,9 @@
 #include <asm/ioctl.h>
 #include "calc_driver.h"
 
-
-#define CALC_MAJOR 140
 #define CALC_MAX_MINORS 3
+
+static int calc_major;
 
 
 struct calc_device_data {
@@ -109,14 +109,11 @@ struct calc_device_data devs[CALC_MAX_MINORS];
 
 static int calc_driver_probe(struct platform_device *pdev)
 {
-    int i, err;
-    err = register_chrdev_region(MKDEV(CALC_MAJOR, 0), CALC_MAX_MINORS, "calc_driver");
-    if (err != 0) 
-        return err;
+    int i;
 
     for(i = 0; i < CALC_MAX_MINORS; i++) {
         cdev_init(&devs[i].cdev, &calc_fops);
-        cdev_add(&devs[i].cdev, MKDEV(CALC_MAJOR, i), 1);
+        cdev_add(&devs[i].cdev, MKDEV(calc_major, i), 1);
         devs[i].var = 0;
         devs[i].curr_op = ADD;
     }
@@ -128,7 +125,7 @@ static int calc_driver_remove(struct platform_device *pdev)
     int i;
     for(i = 0; i < CALC_MAX_MINORS; i++)
         cdev_del(&devs[i].cdev);
-    unregister_chrdev_region(MKDEV(CALC_MAJOR, 0), CALC_MAX_MINORS);
+    unregister_chrdev_region(calc_major, CALC_MAX_MINORS);
     return 0;
 }
 
@@ -147,13 +144,23 @@ static struct platform_driver calc_driver = {
     .remove = calc_driver_remove,
 };
 
-int init_module ()
+int init_module(void)
 {
+    int ret;
+    dev_t dev;
+
+    ret = alloc_chrdev_region(&dev, 0, CALC_MAX_MINORS, "calc_driver");
+    if (ret != 0) {
+        printk(KERN_ERR "calc_driver: cannot allocate chrdev region\n");
+        return ret;
+    }
+    calc_major = MAJOR(dev);
+
     printk(KERN_ERR"Registering calc_driver\n");
     return platform_driver_register(&calc_driver);
 }
 
-void cleanup_module ()
+void cleanup_module()
 {
     printk(KERN_ERR"Unregistering calc_driver\n");
     platform_driver_unregister(&calc_driver);
