@@ -105,27 +105,72 @@ const struct file_operations calc_fops = {
     .release = calc_release
 };
 
-struct calc_device_data devs[CALC_MAX_MINORS];
+static unsigned char calc_minors[CALC_MAX_MINORS] = {0};
+
+static int get_calc_minor(void)
+{
+    unsigned int i;
+
+    for (i = 0; i < CALC_MAX_MINORS; i++)
+        if (calc_minors[i] == 0)
+            return i;
+
+    return -1;
+}
 
 static int calc_driver_probe(struct platform_device *pdev)
 {
-    int i;
+    struct calc_device_data* data;
+    unsigned int minor;
+    int ret;
 
-    for(i = 0; i < CALC_MAX_MINORS; i++) {
-        cdev_init(&devs[i].cdev, &calc_fops);
-        cdev_add(&devs[i].cdev, MKDEV(calc_major, i), 1);
-        devs[i].var = 0;
-        devs[i].curr_op = ADD;
+    minor = get_calc_minor();
+    if (minor == -1) {
+        printk(KERN_ERR "calc_driver: reached max number of devices\n");
+        return -EIO;
     }
+    calc_minors[minor] = 1;
+
+    data = devm_kzalloc(&pdev->dev, sizeof(struct calc_device_data), GFP_KERNEL);
+    if (!data) {
+        printk(KERN_ERR "calc_driver: unable to allocate driver data\n");
+        return -ENOMEM;
+    }
+
+    cdev_init(&data->cdev, &calc_fops);
+    ret = cdev_add(&data->cdev, MKDEV(calc_major, minor), 1);
+    if (ret) {
+        printk(KERN_ERR "calc_driver: cdev_add failed\n");
+        goto err_min_ret;
+    }
+
+    data->var = 0;
+    data->curr_op = ADD;
+
+    platform_set_drvdata(pdev, data);
+
+    printk(KERN_INFO"calc_driver: successful probe of device: %s\n",
+                    pdev->name);
     return 0;
+
+err_min_ret:
+    calc_minors[minor] = 0;
+    return ret;
 }
 
 static int calc_driver_remove(struct platform_device *pdev)
 {
-    int i;
-    for(i = 0; i < CALC_MAX_MINORS; i++)
-        cdev_del(&devs[i].cdev);
-    unregister_chrdev_region(calc_major, CALC_MAX_MINORS);
+    struct calc_device_data* data;
+    struct cdev* cdev;
+    unsigned int minor;
+
+    data = platform_get_drvdata(pdev);
+    cdev = &data->cdev;
+    minor = MINOR(cdev->dev);
+    
+    cdev_del(&data->cdev);
+    calc_minors[minor] = 0;
+
     return 0;
 }
 
@@ -156,13 +201,25 @@ int init_module(void)
     }
     calc_major = MAJOR(dev);
 
+    ret = platform_driver_register(&calc_driver);
+    if (ret) {
+        printk(KERN_ERR "calc_driver: error while registering the driver\n");
+        goto err_unreg;
+    }
+
     printk(KERN_INFO "calc_driver: successfully registered\n");
-    return platform_driver_register(&calc_driver);
+    return 0;
+
+err_unreg:
+    unregister_chrdev_region(calc_major, CALC_MAX_MINORS);
+    return ret;
 }
 
 void cleanup_module()
 {
     printk(KERN_INFO "calc_driver removal\n");
+
+    unregister_chrdev_region(calc_major, CALC_MAX_MINORS);
     platform_driver_unregister(&calc_driver);
 }
 
