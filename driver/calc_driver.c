@@ -156,13 +156,13 @@ int init_module(void)
     }
     calc_major = MAJOR(dev);
 
-    printk(KERN_ERR"Registering calc_driver\n");
+    printk(KERN_INFO "calc_driver: successfully registered\n");
     return platform_driver_register(&calc_driver);
 }
 
 void cleanup_module()
 {
-    printk(KERN_ERR"Unregistering calc_driver\n");
+    printk(KERN_INFO "calc_driver removal\n");
     platform_driver_unregister(&calc_driver);
 }
 
