@@ -151,6 +151,11 @@ static int calc_driver_probe(struct platform_device *pdev)
 
     platform_set_drvdata(pdev, data);
 
+    if (IS_ERR(device_create(calc_class, &pdev->dev,
+                             MKDEV(calc_major, minor), NULL,
+                             "calc-%u", minor)))
+        printk(KERN_ERR "calc_driver: cannot create char device\n");
+
     printk(KERN_INFO"calc_driver: successful probe of device: %s\n",
                     pdev->name);
     return 0;
@@ -172,6 +177,8 @@ static int calc_driver_remove(struct platform_device *pdev)
     
     cdev_del(&data->cdev);
     calc_minors[minor] = 0;
+
+    device_destroy(calc_class, MKDEV(calc_major, minor));
 
     return 0;
 }
