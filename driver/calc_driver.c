@@ -96,6 +96,8 @@ static int calc_release (struct inode *inode, struct file *file)
     return 0;
 }
 
+static struct class* calc_class;
+
 const struct file_operations calc_fops = {
     .owner = THIS_MODULE,
     .open = calc_open,
@@ -149,6 +151,11 @@ static int calc_driver_probe(struct platform_device *pdev)
 
     platform_set_drvdata(pdev, data);
 
+    if (IS_ERR(device_create(calc_class, &pdev->dev,
+                             MKDEV(calc_major, minor), NULL,
+                             "calc-%u", minor)))
+        printk(KERN_ERR "calc_driver: cannot create char device\n");
+
     printk(KERN_INFO"calc_driver: successful probe of device: %s\n",
                     pdev->name);
     return 0;
@@ -170,6 +177,8 @@ static int calc_driver_remove(struct platform_device *pdev)
     
     cdev_del(&data->cdev);
     calc_minors[minor] = 0;
+
+    device_destroy(calc_class, MKDEV(calc_major, minor));
 
     return 0;
 }
@@ -201,15 +210,23 @@ int init_module(void)
     }
     calc_major = MAJOR(dev);
 
+    calc_class = class_create(THIS_MODULE, "calc_class");
+    if (IS_ERR(calc_class)) {
+        printk(KERN_ERR "calc_driver: cannot create calc_class\n");
+        goto err_unreg;
+    }
+
     ret = platform_driver_register(&calc_driver);
     if (ret) {
         printk(KERN_ERR "calc_driver: error while registering the driver\n");
-        goto err_unreg;
+        goto err_cls;
     }
 
     printk(KERN_INFO "calc_driver: successfully registered\n");
     return 0;
 
+err_cls:
+    class_destroy(calc_class);
 err_unreg:
     unregister_chrdev_region(calc_major, CALC_MAX_MINORS);
     return ret;
@@ -221,6 +238,7 @@ void cleanup_module()
 
     unregister_chrdev_region(calc_major, CALC_MAX_MINORS);
     platform_driver_unregister(&calc_driver);
+    class_destroy(calc_class);
 }
 
 MODULE_LICENSE ("GPL");
