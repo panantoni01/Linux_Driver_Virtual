@@ -6,6 +6,7 @@
 #include <linux/cdev.h>
 #include <linux/ioport.h>
 #include <asm/ioctl.h>
+#include <asm/io.h>
 #include "calc_driver.h"
 
 #define CALC_MAX_MINORS 3
@@ -19,6 +20,17 @@ struct calc_device_data {
     unsigned int curr_op;
     void* __iomem base;
 };
+
+
+static inline void write_addr(u32 val, void __iomem *addr)
+{
+    writel((u32 __force)cpu_to_le32(val), addr);
+}
+
+static inline u32 read_addr(void __iomem *addr)
+{
+    return le32_to_cpu(( __le32 __force)readl(addr));
+}
 
 static int calc_open(struct inode *inode, struct file *file)
 {
