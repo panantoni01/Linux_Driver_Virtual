@@ -53,10 +53,11 @@ static inline void* __iomem get_base_ptr(struct file *file)
 
 static ssize_t calc_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
-    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
-    size_t buf_size = count < (sizeof(calc_data->var) - *offset) ? count : (sizeof(calc_data->var) - *offset);
+    void* base_ptr = get_base_ptr(file);
+    u32 result = read_addr(base_ptr + RESULT_REG_OFFSET);
+    size_t buf_size = count < (sizeof(result) - *offset) ? count : (sizeof(result) - *offset);
     
-    if(copy_to_user(buf, &calc_data->var, sizeof(long)))
+    if(copy_to_user(buf, &result, sizeof(result)))
         return -EFAULT;
 
     *offset += buf_size;
