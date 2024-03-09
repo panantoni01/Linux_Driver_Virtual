@@ -17,6 +17,7 @@ struct calc_device_data {
     struct cdev cdev;
     long var;
     unsigned int curr_op;
+    void* __iomem base;
 };
 
 static int calc_open(struct inode *inode, struct file *file)
@@ -124,7 +125,8 @@ static int calc_driver_probe(struct platform_device *pdev)
 {
     struct calc_device_data* data;
     unsigned int minor;
-    int ret;
+    long ret;
+    struct resource* mem_res;
 
     minor = get_calc_minor();
     if (minor == -1) {
@@ -149,6 +151,20 @@ static int calc_driver_probe(struct platform_device *pdev)
     data->var = 0;
     data->curr_op = ADD;
 
+    mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    if (IS_ERR(mem_res)) {
+        printk(KERN_ERR "calc_driver: cannot get memory resource\n");
+        ret = PTR_ERR(mem_res);
+        goto err_cdev_del;
+    }
+
+    data->base = devm_ioremap_resource(&pdev->dev, mem_res);
+    if (IS_ERR(data->base)) {
+        printk(KERN_ERR "calc_driver: cannot remap memory resource\n");
+        ret = PTR_ERR(data->base);
+        goto err_cdev_del;
+    }
+
     platform_set_drvdata(pdev, data);
 
     if (IS_ERR(device_create(calc_class, &pdev->dev,
@@ -160,6 +176,8 @@ static int calc_driver_probe(struct platform_device *pdev)
                     pdev->name);
     return 0;
 
+err_cdev_del:
+    cdev_del(&data->cdev);
 err_min_ret:
     calc_minors[minor] = 0;
     return ret;
