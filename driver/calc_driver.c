@@ -60,33 +60,18 @@ static ssize_t calc_read(struct file *file, char __user *buf, size_t count, loff
 
 static ssize_t calc_write(struct file *file, const char __user *buf, size_t count, loff_t *offset) 
 {
-    long num_buf;
-    size_t buf_size = count < sizeof(num_buf) ? count : sizeof(num_buf);
+    u32 old_data_reg1, user_data = 0;
+    size_t buf_size = count < sizeof(user_data) ? count : sizeof(user_data);
     struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
+    void* base_ptr = calc_data->base;
 
-    if(copy_from_user(&num_buf, buf, buf_size))
+    if(copy_from_user(&user_data, buf, buf_size))
         return -EFAULT;    
 
-    switch (calc_data->curr_op) {
-        case ADD:
-            calc_data->var += num_buf;
-            break;
-        case SUB:
-            calc_data->var -= num_buf;
-            break;
-        case MUL:
-            calc_data->var *= num_buf;
-            break;
-        case DIV:
-            if (num_buf == 0) {
-                printk(KERN_ERR"Div0 attempt!\n");
-                return buf_size;
-            }
-            calc_data->var /= num_buf;
-            break;
-        default:
-            break;
-    }
+    /* Transfer DAT1_REG->DAT0_REG and write user data to DAT1_REG */
+    old_data_reg1 = read_addr(base_ptr + DAT1_REG_OFFSET);
+    write_addr(old_data_reg1, base_ptr + DAT0_REG_OFFSET);
+    write_addr(user_data, base_ptr + DAT1_REG_OFFSET);
 
     return buf_size;
 }
