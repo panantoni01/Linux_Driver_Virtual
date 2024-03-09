@@ -46,6 +46,11 @@ static int calc_open(struct inode *inode, struct file *file)
     return 0;
 }
 
+static inline void* __iomem get_base_ptr(struct file *file)
+{
+    return ((struct calc_device_data*)file->private_data)->base;
+}
+
 static ssize_t calc_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
     struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
@@ -62,8 +67,7 @@ static ssize_t calc_write(struct file *file, const char __user *buf, size_t coun
 {
     u32 old_data_reg1, user_data = 0;
     size_t buf_size = count < sizeof(user_data) ? count : sizeof(user_data);
-    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
-    void* base_ptr = calc_data->base;
+    void* base_ptr = get_base_ptr(file);
 
     if(copy_from_user(&user_data, buf, buf_size))
         return -EFAULT;    
@@ -78,8 +82,7 @@ static ssize_t calc_write(struct file *file, const char __user *buf, size_t coun
 
 static long calc_ioctl (struct file *file, unsigned int cmd, unsigned long arg) 
 {
-    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
-    void* base_ptr = calc_data->base;
+    void* base_ptr = get_base_ptr(file);
     u32 status;
     
     switch(cmd) {
