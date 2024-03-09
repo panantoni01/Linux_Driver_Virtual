@@ -9,6 +9,12 @@
 #include <asm/io.h>
 #include "calc_driver.h"
 
+#define STATUS_REG_OFFSET    0x00
+#define OPERATION_REG_OFFSET 0x04
+#define DAT0_REG_OFFSET      0x08
+#define DAT1_REG_OFFSET      0x0c
+#define RESULT_REG_OFFSET    0x10
+
 #define CALC_MAX_MINORS 3
 
 static int calc_major;
@@ -88,15 +94,20 @@ static ssize_t calc_write(struct file *file, const char __user *buf, size_t coun
 static long calc_ioctl (struct file *file, unsigned int cmd, unsigned long arg) 
 {
     struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
+    void* base_ptr = calc_data->base;
+    u32 status;
     
     switch(cmd) {
         case CALC_IOCTL_RESET:
-            calc_data->var = 0;
+            write_addr((u32)STATUS_MASK_ALL, base_ptr + STATUS_REG_OFFSET);
             break;
         case CALC_IOCTL_CHANGE_OP:
-            calc_data->curr_op = (unsigned int)arg;
-            if (calc_data->curr_op > DIV)
-                return -EINVAL;
+            write_addr((u32)arg, base_ptr + OPERATION_REG_OFFSET);
+            break;
+        case CALC_IOCTL_CHECK_STATUS:
+            status = read_addr(base_ptr + STATUS_REG_OFFSET);
+            if (copy_to_user((u32*)arg ,&status, sizeof(status)))
+                return -EFAULT;
             break;
         default:
             return -EINVAL;
