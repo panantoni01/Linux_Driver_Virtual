@@ -138,7 +138,8 @@ static int calc_driver_probe(struct platform_device *pdev)
     data = devm_kzalloc(&pdev->dev, sizeof(struct calc_device_data), GFP_KERNEL);
     if (!data) {
         printk(KERN_ERR "calc_driver: unable to allocate driver data\n");
-        return -ENOMEM;
+        ret = -ENOMEM;
+        goto err_min_ret;
     }
 
     cdev_init(&data->cdev, &calc_fops);
