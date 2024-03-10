@@ -25,6 +25,8 @@ static unsigned char calc_minors[CALC_MAX_MINORS] = {0};
 struct calc_device_data {
     struct cdev cdev;
     void* __iomem base;
+    unsigned int opened;
+    spinlock_t open_lock;
 };
 
 
@@ -40,10 +42,19 @@ static inline u32 read_addr(void __iomem *addr)
 
 static int calc_open(struct inode *inode, struct file *file)
 {
+    int ret = 0;
     struct calc_device_data *calc_data = container_of(inode->i_cdev, struct calc_device_data, cdev);
     file->private_data = calc_data;
 
-    return 0;
+    /* we dont want to open the device >1 times - interference could occur */
+    spin_lock(&calc_data->open_lock);
+    if (calc_data->opened)
+        ret = -EBUSY;
+    else
+        calc_data->opened++;
+    spin_unlock(&calc_data->open_lock);
+
+    return ret;
 }
 
 static inline void* __iomem get_base_ptr(struct file *file)
@@ -106,6 +117,12 @@ static long calc_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
 
 static int calc_release (struct inode *inode, struct file *file)
 {
+    struct calc_device_data* calc_data = file->private_data;
+
+    spin_lock(&calc_data->open_lock);
+    calc_data->opened = 0;
+    spin_unlock(&calc_data->open_lock);
+
     return 0;
 }
 
@@ -172,6 +189,9 @@ static int calc_driver_probe(struct platform_device *pdev)
         ret = PTR_ERR(data->base);
         goto err_cdev_del;
     }
+
+    spin_lock_init(&data->open_lock);
+    data->opened = 0;
 
     platform_set_drvdata(pdev, data);
 
