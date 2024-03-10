@@ -22,8 +22,6 @@ static int calc_major;
 
 struct calc_device_data {
     struct cdev cdev;
-    long var;
-    unsigned int curr_op;
     void* __iomem base;
 };
 
@@ -160,9 +158,6 @@ static int calc_driver_probe(struct platform_device *pdev)
         printk(KERN_ERR "calc_driver: cdev_add failed\n");
         goto err_min_ret;
     }
-
-    data->var = 0;
-    data->curr_op = ADD;
 
     mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
     if (IS_ERR(mem_res)) {
