@@ -6,18 +6,37 @@
 #include <linux/cdev.h>
 #include <linux/ioport.h>
 #include <asm/ioctl.h>
+#include <asm/io.h>
 #include "calc_driver.h"
+
+#define STATUS_REG_OFFSET    0x00
+#define OPERATION_REG_OFFSET 0x04
+#define DAT0_REG_OFFSET      0x08
+#define DAT1_REG_OFFSET      0x0c
+#define RESULT_REG_OFFSET    0x10
+
+static int calc_major;
 
 #define CALC_MAX_MINORS 3
 
-static int calc_major;
+static unsigned char calc_minors[CALC_MAX_MINORS] = {0};
 
 
 struct calc_device_data {
     struct cdev cdev;
-    long var;
-    unsigned int curr_op;
+    void* __iomem base;
 };
+
+
+static inline void write_addr(u32 val, void __iomem *addr)
+{
+    writel((u32 __force)cpu_to_le32(val), addr);
+}
+
+static inline u32 read_addr(void __iomem *addr)
+{
+    return le32_to_cpu(( __le32 __force)readl(addr));
+}
 
 static int calc_open(struct inode *inode, struct file *file)
 {
@@ -27,12 +46,18 @@ static int calc_open(struct inode *inode, struct file *file)
     return 0;
 }
 
+static inline void* __iomem get_base_ptr(struct file *file)
+{
+    return ((struct calc_device_data*)file->private_data)->base;
+}
+
 static ssize_t calc_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
-    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
-    size_t buf_size = count < (sizeof(calc_data->var) - *offset) ? count : (sizeof(calc_data->var) - *offset);
+    void* base_ptr = get_base_ptr(file);
+    u32 result = read_addr(base_ptr + RESULT_REG_OFFSET);
+    size_t buf_size = count < (sizeof(result) - *offset) ? count : (sizeof(result) - *offset);
     
-    if(copy_to_user(buf, &calc_data->var, sizeof(long)))
+    if(copy_to_user(buf, &result, sizeof(result)))
         return -EFAULT;
 
     *offset += buf_size;
@@ -41,49 +66,37 @@ static ssize_t calc_read(struct file *file, char __user *buf, size_t count, loff
 
 static ssize_t calc_write(struct file *file, const char __user *buf, size_t count, loff_t *offset) 
 {
-    long num_buf;
-    size_t buf_size = count < sizeof(num_buf) ? count : sizeof(num_buf);
-    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
+    u32 old_data_reg1, user_data = 0;
+    size_t buf_size = count < sizeof(user_data) ? count : sizeof(user_data);
+    void* base_ptr = get_base_ptr(file);
 
-    if(copy_from_user(&num_buf, buf, buf_size))
+    if(copy_from_user(&user_data, buf, buf_size))
         return -EFAULT;    
 
-    switch (calc_data->curr_op) {
-        case ADD:
-            calc_data->var += num_buf;
-            break;
-        case SUB:
-            calc_data->var -= num_buf;
-            break;
-        case MUL:
-            calc_data->var *= num_buf;
-            break;
-        case DIV:
-            if (num_buf == 0) {
-                printk(KERN_ERR"Div0 attempt!\n");
-                return buf_size;
-            }
-            calc_data->var /= num_buf;
-            break;
-        default:
-            break;
-    }
+    /* Transfer DAT1_REG->DAT0_REG and write user data to DAT1_REG */
+    old_data_reg1 = read_addr(base_ptr + DAT1_REG_OFFSET);
+    write_addr(old_data_reg1, base_ptr + DAT0_REG_OFFSET);
+    write_addr(user_data, base_ptr + DAT1_REG_OFFSET);
 
     return buf_size;
 }
 
 static long calc_ioctl (struct file *file, unsigned int cmd, unsigned long arg) 
 {
-    struct calc_device_data *calc_data = (struct calc_device_data *)file->private_data;
+    void* base_ptr = get_base_ptr(file);
+    u32 status;
     
     switch(cmd) {
         case CALC_IOCTL_RESET:
-            calc_data->var = 0;
+            write_addr((u32)STATUS_MASK_ALL, base_ptr + STATUS_REG_OFFSET);
             break;
         case CALC_IOCTL_CHANGE_OP:
-            calc_data->curr_op = (unsigned int)arg;
-            if (calc_data->curr_op > DIV)
-                return -EINVAL;
+            write_addr((u32)arg, base_ptr + OPERATION_REG_OFFSET);
+            break;
+        case CALC_IOCTL_CHECK_STATUS:
+            status = read_addr(base_ptr + STATUS_REG_OFFSET);
+            if (copy_to_user((u32*)arg ,&status, sizeof(status)))
+                return -EFAULT;
             break;
         default:
             return -EINVAL;
@@ -107,8 +120,6 @@ const struct file_operations calc_fops = {
     .release = calc_release
 };
 
-static unsigned char calc_minors[CALC_MAX_MINORS] = {0};
-
 static int get_calc_minor(void)
 {
     unsigned int i;
@@ -124,7 +135,8 @@ static int calc_driver_probe(struct platform_device *pdev)
 {
     struct calc_device_data* data;
     unsigned int minor;
-    int ret;
+    long ret;
+    struct resource* mem_res;
 
     minor = get_calc_minor();
     if (minor == -1) {
@@ -136,7 +148,8 @@ static int calc_driver_probe(struct platform_device *pdev)
     data = devm_kzalloc(&pdev->dev, sizeof(struct calc_device_data), GFP_KERNEL);
     if (!data) {
         printk(KERN_ERR "calc_driver: unable to allocate driver data\n");
-        return -ENOMEM;
+        ret = -ENOMEM;
+        goto err_min_ret;
     }
 
     cdev_init(&data->cdev, &calc_fops);
@@ -146,8 +159,19 @@ static int calc_driver_probe(struct platform_device *pdev)
         goto err_min_ret;
     }
 
-    data->var = 0;
-    data->curr_op = ADD;
+    mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    if (IS_ERR(mem_res)) {
+        printk(KERN_ERR "calc_driver: cannot get memory resource\n");
+        ret = PTR_ERR(mem_res);
+        goto err_cdev_del;
+    }
+
+    data->base = devm_ioremap_resource(&pdev->dev, mem_res);
+    if (IS_ERR(data->base)) {
+        printk(KERN_ERR "calc_driver: cannot remap memory resource\n");
+        ret = PTR_ERR(data->base);
+        goto err_cdev_del;
+    }
 
     platform_set_drvdata(pdev, data);
 
@@ -160,6 +184,8 @@ static int calc_driver_probe(struct platform_device *pdev)
                     pdev->name);
     return 0;
 
+err_cdev_del:
+    cdev_del(&data->cdev);
 err_min_ret:
     calc_minors[minor] = 0;
     return ret;
