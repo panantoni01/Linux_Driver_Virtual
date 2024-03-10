@@ -15,9 +15,11 @@
 #define DAT1_REG_OFFSET      0x0c
 #define RESULT_REG_OFFSET    0x10
 
+static int calc_major;
+
 #define CALC_MAX_MINORS 3
 
-static int calc_major;
+static unsigned char calc_minors[CALC_MAX_MINORS] = {0};
 
 
 struct calc_device_data {
@@ -117,8 +119,6 @@ const struct file_operations calc_fops = {
     .unlocked_ioctl = calc_ioctl,
     .release = calc_release
 };
-
-static unsigned char calc_minors[CALC_MAX_MINORS] = {0};
 
 static int get_calc_minor(void)
 {
