@@ -1,0 +1,4 @@
+build/*
+renode_portable/*
+third_party/*
+.git/*
