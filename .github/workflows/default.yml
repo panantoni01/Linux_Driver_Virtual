@@ -1,0 +1,27 @@
+name: Linux Virtual Driver
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Builds
+    runs-on: ubuntu-latest
+    container: panantoni01/linux-drivers:squashed
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build modules
+        run: |
+          cd driver
+          make modules
+      - name: Build test app
+        run: |
+          cd driver
+          make test
+      - name: Build dtb
+        run: |
+          cd driver
+          make dtb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kernel modules
+          path: driver/*.ko
