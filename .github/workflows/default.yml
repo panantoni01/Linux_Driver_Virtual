@@ -21,3 +21,7 @@ jobs:
         run: |
           cd driver
           make dtb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kernel modules
+          path: driver/*.ko
