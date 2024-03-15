@@ -4,17 +4,20 @@ on: [push, pull_request]
 
 jobs:
   build:
-    name: Module & dtb & test app build
+    name: Builds
     runs-on: ubuntu-latest
     container: panantoni01/linux-drivers:squashed
     steps:
       - uses: actions/checkout@v4
-      - run: |
+      - name: Build modules
+        run: |
           cd driver
           make modules
-      - run: |
+      - name: Build test app
+        run: |
           cd driver
           make test
-      - run: |
+      - name: Build dtb
+        run: |
           cd driver
           make dtb
