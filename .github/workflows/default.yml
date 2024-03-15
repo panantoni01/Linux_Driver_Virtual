@@ -1,0 +1,20 @@
+name: Linux Virtual Driver
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Module & dtb & test app build
+    runs-on: ubuntu-latest
+    container: panantoni01/linux-drivers:squashed
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cd driver
+          make modules
+      - run: |
+          cd driver
+          make test
+      - run: |
+          cd driver
+          make dtb
