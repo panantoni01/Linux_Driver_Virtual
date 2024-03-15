@@ -10,5 +10,6 @@ build
 Module.symvers
 modules.order
 test_app
+*.dtb
 .vscode/*
 .gdb*
