@@ -1,0 +1,19 @@
+:description: This is a template Renode script. The following variables are required for its usage - 
+:description:   $platform - path of the platform description file
+:description:   $dtb - path of the compiled device tree, that corresponds to $platform
+:description:   $virtio - path of the virtio image (which contains e.g. compiled kernel module)
+
+using sysbus
+mach create
+machine LoadPlatformDescription $platform
+
+showAnalyzer uart
+
+sysbus LoadBinary @build/linux/arch/riscv/boot/Image 0x40000000
+sysbus LoadBinary $dtb 0x40ef0000
+sysbus LoadBinary @build/opensbi/platform/litex/vexriscv/firmware/fw_jump.bin 0x40f00000
+sysbus LoadBinary @build/buildroot/images/rootfs.cpio 0x42000000
+
+virtio LoadImage $virtio true
+
+cpu PC 0x40f00000

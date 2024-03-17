@@ -1,0 +1,5 @@
+$platform?=@driver_calc/scripts/platform.repl
+$dtb?=@driver_calc/build/rv32.dtb
+$virtio?=@driver_calc/drive.img
+
+include @scripts/litex_template.resc
