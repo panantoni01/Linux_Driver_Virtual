@@ -4,6 +4,7 @@ include ${TOPDIR}/config.mk
 
 BUILD_DIR ?= $(PWD)/build
 BUILD_DIR_MAKEFILE ?= $(BUILD_DIR)/Makefile
+VIRTIO_BUILD ?= $(PWD)/drive.img
 
 build: dtb test modules
 
@@ -26,8 +27,15 @@ $(BUILD_DIR_MAKEFILE): $(BUILD_DIR)
 $(BUILD_DIR):
 	mkdir -p $@
 
-clean:
-	${MAKE} -C ${LINUX_SOURCE} M=${PWD} clean
-	rm -f $(BUILD_DIR)
+build-virtio:
+	truncate -s 64M ${VIRTIO_BUILD}
+	mkfs.ext4 -d ${BUILD_DIR} ${VIRTIO_BUILD}
 
-.PHONY: clean
+clean-virtio:
+	rm -f ${VIRTIO_BUILD}
+
+clean: clean-virtio
+	${MAKE} -C ${LINUX_SOURCE} M=${PWD} clean
+	rm -rf $(BUILD_DIR)
+
+.PHONY: clean build-virtio clean-virtio

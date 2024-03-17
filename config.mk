@@ -15,7 +15,6 @@ OPENSBI_SOURCE   ?= ${TOPDIR}/third_party/opensbi
 BUILDROOT_BUILD ?= ${TOPDIR}/build/buildroot
 LINUX_BUILD     ?= ${TOPDIR}/build/linux
 OPENSBI_BUILD   ?= ${TOPDIR}/build/opensbi
-VIRTIO_BUILD    ?= ${TOPDIR}/build/drive.img
 endif
 
 export ARCH=riscv
