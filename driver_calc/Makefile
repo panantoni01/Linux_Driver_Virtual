@@ -2,25 +2,32 @@ TOPDIR := $(realpath ..)
 
 include ${TOPDIR}/config.mk
 
+BUILD_DIR ?= $(PWD)/build
+BUILD_DIR_MAKEFILE ?= $(BUILD_DIR)/Makefile
+
 build: dtb test modules
 
-dtb: rv32.dtb
-test: test_app
-modules: calc_driver.ko
+dtb: $(BUILD_DIR)/rv32.dtb
+test: $(BUILD_DIR)/test_app
+modules: $(BUILD_DIR)/calc_driver.ko
 
-%.dtb: %.dts
-	dtc -I dts -O dtb -o $@ $^
+$(BUILD_DIR)/%.dtb: %.dts $(BUILD_DIR)
+	dtc -I dts -O dtb -o $@ $<
 
-test_app: test_app.c
-	$(CROSS_COMP)$(CC) -Og -Wall -o $@ $^
+$(BUILD_DIR)/test_app: test_app.c $(BUILD_DIR)
+	$(CROSS_COMP)$(CC) -Og -Wall -o $@ $<
 
-calc_driver.ko: calc_driver.c
-	${MAKE} -C ${LINUX_SOURCE} O=${LINUX_BUILD} M=${PWD} modules
+$(BUILD_DIR)/calc_driver.ko: calc_driver.c $(BUILD_DIR_MAKEFILE)
+	${MAKE} -C ${LINUX_SOURCE} O=${LINUX_BUILD} M=${BUILD_DIR} src=$(PWD) modules
+
+$(BUILD_DIR_MAKEFILE): $(BUILD_DIR)
+	touch $@
+	
+$(BUILD_DIR):
+	mkdir -p $@
 
 clean:
 	${MAKE} -C ${LINUX_SOURCE} M=${PWD} clean
-	rm -f modules.order Module.symvers *.o calc_driver.ko calc_driver.mod.c calc_driver.mod.o calc_driver.o calc_driver.mod .modules.* .Module.* .calc_driver.*
-	rm -f test_app
-	rm -f *.dtb
+	rm -f $(BUILD_DIR)
 
 .PHONY: clean
