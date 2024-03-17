@@ -11,17 +11,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build modules
         run: |
-          cd driver
+          cd driver_calc
           make modules
       - name: Build test app
         run: |
-          cd driver
+          cd driver_calc
           make test
       - name: Build dtb
         run: |
-          cd driver
+          cd driver_calc
           make dtb
       - uses: actions/upload-artifact@v4
         with:
           name: Kernel modules
-          path: driver/*.ko
+          path: driver_calc/build/*.ko
