@@ -1,0 +1,5 @@
+$platform?=@driver_litex_gpio/scripts/platform.repl
+$dtb?=@driver_litex_gpio/build/rv32.dtb
+$virtio?=@driver_litex_gpio/drive.img
+
+include @scripts/litex_template.resc
