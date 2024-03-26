@@ -122,7 +122,7 @@ static int gpio_driver_probe(struct platform_device *pdev)
         goto err_cdev_del;
     }
 
-    data->base = devm_ioremap_resource(&pdev->dev, mem_res);
+    data->base = devm_ioremap(&pdev->dev, mem_res->start, resource_size(mem_res));
     if (IS_ERR(data->base)) {
         printk(KERN_ERR "gpio_driver: cannot remap memory resource\n");
         ret = PTR_ERR(data->base);
