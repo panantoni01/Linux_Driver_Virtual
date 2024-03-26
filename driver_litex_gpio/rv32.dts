@@ -83,17 +83,20 @@
 		};
 	};
 
-	gpio_in@f000b000 {
+	gpio_in_1@f000b000 {
     		compatible = "litex,gpio_in";
-    		reg = <0xf000b000 0x18>;
+    		reg = <0xf000b000 0x20>;
     		status = "okay";
     		interrupt-parent = <&plic>;
     		interrupts = <3>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		button@0 {
-		  reg = <0>;
-		};
+  	};
+
+	gpio_in_2@f000c000 {
+    		compatible = "litex,gpio_in";
+    		reg = <0xf000c000 0x20>;
+    		status = "okay";
+    		interrupt-parent = <&plic>;
+    		interrupts = <3>;
   	};
 
 	aliases {

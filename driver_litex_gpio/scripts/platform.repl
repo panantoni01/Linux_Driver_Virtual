@@ -46,10 +46,18 @@ sysbus:
     init add:
         SilenceRange <4026546176 0x200> # sdram
 
-gpio_in: GPIOPort.LiteX_GPIO @ { sysbus 0xf000b000 }
+gpio_in_1: GPIOPort.LiteX_GPIO @ { sysbus 0xf000b000 }
     type: Type.In
     enableIrq : true
     IRQ -> plic@3
 
-button: Miscellaneous.Button @ gpio_in 0
-    -> gpio_in@0
+button_1: Miscellaneous.Button @ gpio_in_1 0
+    -> gpio_in_1@0
+
+gpio_in_2: GPIOPort.LiteX_GPIO @ { sysbus 0xf000c000 }
+    type: Type.In
+    enableIrq : true
+    IRQ -> plic@3
+
+button_2: Miscellaneous.Button @ gpio_in_2 0
+    -> gpio_in_2@0
