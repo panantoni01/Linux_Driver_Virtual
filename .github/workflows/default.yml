@@ -5,23 +5,26 @@ on: [push, pull_request]
 jobs:
   build:
     name: Builds
+    strategy:
+      matrix:
+        driver_dir: [driver_calc, driver_litex_gpio]
     runs-on: ubuntu-latest
     container: panantoni01/linux-drivers:squashed
     steps:
       - uses: actions/checkout@v4
       - name: Build modules
         run: |
-          cd driver_calc
+          cd ${{ matrix.driver_dir }}
           make modules
       - name: Build test app
         run: |
-          cd driver_calc
+          cd ${{ matrix.driver_dir }}
           make test
       - name: Build dtb
         run: |
-          cd driver_calc
+          cd ${{ matrix.driver_dir }}
           make dtb
       - uses: actions/upload-artifact@v4
         with:
-          name: Kernel modules
-          path: driver_calc/build/*.ko
+          name: "${{ matrix.driver_dir }} kernel module"
+          path: ${{ matrix.driver_dir }}/build/*.ko
