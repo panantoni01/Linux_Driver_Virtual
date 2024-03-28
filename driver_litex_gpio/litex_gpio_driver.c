@@ -42,10 +42,17 @@ static inline u32 read_addr(void __iomem *addr)
 
 static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 {
-    /* TODO - increment the counter */
-    /* TODO - check if we came with good `dev_id` */
-    /* TODO - use complete_*  */
-    write_addr(1, ((struct gpio_device_data *)dev_id)->base + REG_INTERRUPT_PENDING);
+    struct gpio_device_data* gpio_data = dev_id;
+
+    if (read_addr(gpio_data->base + REG_INTERRUPT_PENDING) == 0)
+        return IRQ_NONE;
+
+    spin_lock(&gpio_data->counter_lock);
+    gpio_data->counter++;
+    complete(&gpio_data->btn_press_completion);
+    spin_unlock(&gpio_data->counter_lock);
+
+    write_addr(1, gpio_data->base + REG_INTERRUPT_PENDING);
     return IRQ_HANDLED;
 }
 
