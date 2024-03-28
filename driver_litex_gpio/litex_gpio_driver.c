@@ -6,6 +6,7 @@
 #include <linux/cdev.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
+#include <linux/completion.h>
 #include "litex_gpio_driver.h"
 
 #define REG_GPIO_STATE       0x0
@@ -24,6 +25,7 @@ struct gpio_device_data {
     void* __iomem base;
     unsigned int counter;
     spinlock_t counter_lock;
+    struct completion btn_press_completion;
 };
 
 static inline void write_addr(u32 val, void __iomem *addr)
@@ -145,6 +147,8 @@ static int gpio_driver_probe(struct platform_device *pdev)
 
     spin_lock_init(&data->counter_lock);
     data->counter = 0;
+
+    init_completion(&data->btn_press_completion);
 
     platform_set_drvdata(pdev, data);
 
