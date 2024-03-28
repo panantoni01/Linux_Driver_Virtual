@@ -1,6 +1,10 @@
-# Linux Device Driver
+# Linux Drivers
 
-This repository contains source code for a Linux device driver of a virtual peripheral (`scripts/calc_periph.py`) on RISC-V processor that is emulated in [Renode](https://github.com/renode/renode) framework. All the used materials are based on the contents of Linux Device Drivers course at the University of Wroclaw (a.y. 2021-2022).
+This repository contains source code for some Linux character device drivers that I developed as a part of the Linux drivers course at the University of Wroclaw (a.y. 2021-2022):
+* [driver_calc](https://github.com/panantoni01/Linux_Driver_Virtual/tree/main/driver_calc) - driver of a simple arithmetic peripheral, that is capable of performing +,-,*,/ operations
+* [driver_litex_gpio](https://github.com/panantoni01/Linux_Driver_Virtual/tree/main/driver_litex_gpio) - driver of a LiteX's GPIO device that counts the number interrupts raised from the device
+
+All the drivers can be built and run on a Vexriscv processor that is emulated in [Renode](https://github.com/renode/renode) framework.
 
 ## Prerequisites
 
@@ -22,35 +26,29 @@ export PATH=${REPO_PATH}/build/buildroot/host/bin:${PATH}
 
 * `make build-opensbi` - build OpenSBI bootloader.
 
-## Driver description
+## Build and run
 
-The driver controls a simple arithmetic peripheral, that supports +,-,*,/ operations. It is simulated by in a virtual environment using Renode. The driver provides the following functionalities:
+### Build a selected driver
+In any of the `driver_*` directories, the following commands can be used to build all the files required to emulate a specific driver and test it in Renode:
+* `make dtb` - build the device tree blob, that is used by kernel to read the hardware configuration
+* `make modules` - build the `*.ko` file, that is the kernel module (later loaded with *insmod*)
+* `make test` - build the test application
 
-* IOCTL for selecting the operation
-* IOCTL for checking status of the device
-* IOCTL for resetting error code
-* data is provided to the driver by writing the /dev file
-* results are fetched by reading the /dev file
+One can also simply type `make` to build all the required targets.
 
-Example flow:
-```
-write <-- 2
-write <-- 10
-ioctl operation_add
-ioctl check_status
-read -> 12
-```
-Example error handling flow:
-```
-write <-- 2
-write <-- 0
-ioctl operation_div
-ioctl check_status
-ioctl error_ack
-print error
-```
+Once all the files are built, one should also create a `virtio` image, which contains all the built files. This approach makes it easy to access the kernel module and test application from the emulated Linux system:
+* `make build-virtio` - build the virtio image
 
-* ```my_driver.c``` - main driver code
-* ```my_driver.h``` - separate header file with defines for ioctls
-* ```mydriver_test.c``` -  example userspace program to test the driver functionality
-* ```rv32.dts``` - device tree file - contains hardware description (including the peripheral).
+### Run Renode simulation
+First, start Renode:
+```
+./renode_portable/renode
+```
+Load the selected Renode script:
+```
+(monitor) include @driver_*/scripts/litex.resc
+```
+And finally start the emulation:
+```
+(machine-0) start
+```
