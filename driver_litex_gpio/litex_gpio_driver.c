@@ -42,6 +42,9 @@ static inline u32 read_addr(void __iomem *addr)
 
 static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 {
+    /* TODO - increment the counter */
+    /* TODO - check if we came with good `dev_id` */
+    /* TODO - use complete_*  */
     write_addr(1, ((struct gpio_device_data *)dev_id)->base + REG_INTERRUPT_PENDING);
     return IRQ_HANDLED;
 }
@@ -64,6 +67,27 @@ static int gpio_open(struct inode *inode, struct file *file)
 
 static ssize_t gpio_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
+    /**
+    * It is assumed that only a single user application can interact with the
+    * driver at a time and that it will look like this:
+    * while(true) {
+    *    read("/dev/litex-gpio-x", &x);
+    *    printf("Caught interrupt number... %d!\n", x);
+    * }
+    */
+    struct gpio_device_data* gpio_data = (struct gpio_device_data*)file->private_data;
+    int result;
+    size_t buf_size = count < (sizeof(result) - *offset) ? count : (sizeof(result) - *offset);
+
+    wait_for_completion_interruptible(&gpio_data->btn_press_completion);
+
+    result = gpio_data->counter;
+    if(copy_to_user(buf, &result, sizeof(result)))
+        return -EFAULT;
+
+    *offset += buf_size;
+    return buf_size; 
+
     return 0;
 }
 
