@@ -1,6 +1,6 @@
 TOPDIR = $(realpath .)
 
-include config.mk
+include ${TOPDIR}/build_mkfiles/config.mk
 
 env: build-buildroot build-linux build-opensbi
 

@@ -1,6 +1,6 @@
 TOPDIR := $(realpath ..)
 
-include ${TOPDIR}/config.mk
+include ${TOPDIR}/build_mkfiles/config.mk
 
 BUILD_DIR ?= $(PWD)/build
 BUILD_DIR_MAKEFILE ?= $(BUILD_DIR)/Makefile
