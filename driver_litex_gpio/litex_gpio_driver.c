@@ -26,6 +26,8 @@ struct gpio_device_data {
     unsigned int counter;
     spinlock_t counter_lock;
     struct completion btn_press_completion;
+    unsigned int opened;
+    spinlock_t open_lock;
 };
 
 static inline void write_addr(u32 val, void __iomem *addr)
@@ -46,9 +48,18 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 
 static int gpio_open(struct inode *inode, struct file *file)
 {
+    int ret = 0;
     struct gpio_device_data *gpio_data = container_of(inode->i_cdev, struct gpio_device_data, cdev);
     file->private_data = gpio_data;
-    return 0;
+
+    spin_lock(&gpio_data->open_lock);
+    if (gpio_data->opened)
+        ret = -EBUSY;
+    else
+        gpio_data->opened++;
+    spin_unlock(&gpio_data->open_lock);
+
+    return ret;
 }
 
 static ssize_t gpio_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
@@ -68,6 +79,12 @@ static long gpio_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
 
 static int gpio_release (struct inode *inode, struct file *file)
 {
+    struct gpio_device_data* gpio_data = file->private_data;
+
+    spin_lock(&gpio_data->open_lock);
+    gpio_data->opened = 0;
+    spin_unlock(&gpio_data->open_lock);
+
     return 0;
 }
 
@@ -149,6 +166,9 @@ static int gpio_driver_probe(struct platform_device *pdev)
 
     spin_lock_init(&data->counter_lock);
     data->counter = 0;
+
+    spin_lock_init(&data->open_lock);
+    data->opened = 0;
 
     init_completion(&data->btn_press_completion);
 
