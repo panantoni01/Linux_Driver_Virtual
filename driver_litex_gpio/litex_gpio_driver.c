@@ -46,6 +46,8 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 
 static int gpio_open(struct inode *inode, struct file *file)
 {
+    struct gpio_device_data *gpio_data = container_of(inode->i_cdev, struct gpio_device_data, cdev);
+    file->private_data = gpio_data;
     return 0;
 }
 
