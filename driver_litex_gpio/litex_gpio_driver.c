@@ -74,6 +74,20 @@ static ssize_t gpio_write(struct file *file, const char __user *buf, size_t coun
 
 static long gpio_ioctl (struct file *file, unsigned int cmd, unsigned long arg) 
 {
+    struct gpio_device_data* gpio_data = (struct gpio_device_data*)file->private_data;
+    unsigned long flags;
+
+    switch(cmd) {
+        case GPIO_IOCTL_RESET:
+            spin_lock_irqsave(&gpio_data->counter_lock, flags);
+            gpio_data->counter = 0;
+            reinit_completion(&gpio_data->btn_press_completion);
+            spin_unlock_irqrestore(&gpio_data->counter_lock, flags);
+            break;
+        default:
+            return -EINVAL;
+    }
+
     return 0;
 }
 
