@@ -26,5 +26,8 @@ jobs:
           make dtb
       - uses: actions/upload-artifact@v4
         with:
-          name: "${{ matrix.driver_dir }} kernel module"
-          path: ${{ matrix.driver_dir }}/build/*.ko
+          name: "${{ matrix.driver_dir }} binaries"
+          path: |
+            ${{ matrix.driver_dir }}/build/*.ko
+            ${{ matrix.driver_dir }}/build/*.dtb
+            ${{ matrix.driver_dir }}/build/test_app
