@@ -86,6 +86,10 @@
 			reg = <0xf0009800 0x10>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			si7021@40 {
+				compatible = "si7021";
+				reg = <0x40>;
+			};
 		};
 	};
 
