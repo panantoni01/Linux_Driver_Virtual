@@ -7,7 +7,7 @@ jobs:
     name: Builds
     strategy:
       matrix:
-        driver_dir: [driver_calc, driver_litex_gpio]
+        driver_dir: [driver_calc, driver_litex_gpio, driver_si7021]
     runs-on: ubuntu-latest
     container: panantoni01/linux-drivers:squashed
     steps:
