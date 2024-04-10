@@ -81,12 +81,22 @@
 			interrupts = <2>;
 			interrupt-parent = <&plic>;
 		};
-		i2c@f0009800 {
+		i2c_0@f0009800 {
 			compatible = "litex,i2c";
 			reg = <0xf0009800 0x10>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			si7021@40 {
+			si7021_0@40 {
+				compatible = "si7021";
+				reg = <0x40>;
+			};
+		};
+		i2c_1@f000a000 {
+			compatible = "litex,i2c";
+			reg = <0xf000a000 0x10>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			si7021_1@40 {
 				compatible = "si7021";
 				reg = <0x40>;
 			};

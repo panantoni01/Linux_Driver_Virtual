@@ -4,7 +4,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 
-#define SI7021_MAX_MINORS 1
+#define SI7021_MAX_MINORS 2
 
 static int si7021_major;
 static struct class* si7021_class;
