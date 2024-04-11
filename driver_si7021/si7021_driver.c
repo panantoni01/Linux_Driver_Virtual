@@ -7,17 +7,118 @@
 #define SI7021_MAX_MINORS 2
 
 static int si7021_major;
+static unsigned char si7021_minors[SI7021_MAX_MINORS] = {0};
 static struct class* si7021_class;
 
+struct si7021_data {
+    struct cdev cdev;
+};
 
-static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *id)
+
+static int si7021_open(struct inode *inode, struct file *file)
 {
     return 0;
 }
 
+static ssize_t si7021_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
+{
+    return 0;
+}
+
+static ssize_t si7021_write(struct file *file, const char __user *buf, size_t count, loff_t *offset)
+{
+    return 0;
+}
+
+static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
+{
+    return 0;
+}
+
+static int si7021_release (struct inode *inode, struct file *file)
+{
+    return 0;
+}
+
+const struct file_operations si7021_fops = {
+    .owner = THIS_MODULE,
+    .open = si7021_open,
+    .read = si7021_read,
+    .write = si7021_write,
+    .unlocked_ioctl = si7021_ioctl,
+    .release = si7021_release
+};
+
+static int get_si7021_minor(void)
+{
+    unsigned int i;
+
+    for (i = 0; i < SI7021_MAX_MINORS; i++)
+        if (si7021_minors[i] == 0)
+            return i;
+
+    return -1;
+}
+
+static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+    long ret;
+    struct si7021_data* data;
+    unsigned int minor;
+
+    minor = get_si7021_minor();
+    if (minor == -1) {
+        printk(KERN_ERR "si7021_driver: reached max number of devices\n");
+        return -EIO;
+    }
+    si7021_minors[minor] = 1;
+
+    data = devm_kzalloc(&client->dev, sizeof(struct si7021_data), GFP_KERNEL);
+    if (!data) {
+        printk(KERN_ERR "si7021_driver: unable to allocate driver data\n");
+        ret = -ENOMEM;
+        goto err_min_ret;
+    }
+
+    cdev_init(&data->cdev, &si7021_fops);
+    ret = cdev_add(&data->cdev, MKDEV(si7021_major, minor), 1);
+    if (ret) {
+        printk(KERN_ERR "si7021_driver: cdev_add failed\n");
+        goto err_min_ret;
+    }
+
+    i2c_set_clientdata(client, data);
+
+    if (IS_ERR(device_create(si7021_class, &client->dev,
+                             MKDEV(si7021_major, minor), NULL,
+                             "si7021-%u", minor)))
+        printk(KERN_ERR "si7021_driver: cannot create char device\n");
+
+    printk(KERN_INFO"si7021_driver: successful probe of device: %s\n",
+                    client->name);
+    return 0;
+
+err_min_ret:
+    si7021_minors[minor] = 0;
+    return ret;
+}
+
 static int si7021_remove(struct i2c_client *client)
 {
-	return 0;
+    struct si7021_data* data;
+    struct cdev* cdev;
+    unsigned int minor;
+
+    data = i2c_get_clientdata(client);
+    cdev = &data->cdev;
+    minor = MINOR(cdev->dev);
+    
+    cdev_del(&data->cdev);
+    si7021_minors[minor] = 0;
+
+    device_destroy(si7021_class, MKDEV(si7021_major, minor));
+
+    return 0;
 }
 
 
