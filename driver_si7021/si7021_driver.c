@@ -19,11 +19,20 @@ static struct class* si7021_class;
 
 struct si7021_data {
     struct cdev cdev;
+    unsigned long flags;
+#define SI7021_BUSY_BIT_POS 0
 };
 
 
 static int si7021_open(struct inode *inode, struct file *file)
 {
+    struct si7021_data *si7021_data = container_of(inode->i_cdev, struct si7021_data, cdev);
+
+    if (test_and_set_bit(SI7021_BUSY_BIT_POS, &si7021_data->flags))
+		return -EBUSY;
+
+    file->private_data = si7021_data;
+
     return 0;
 }
 
@@ -44,6 +53,9 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
 
 static int si7021_release (struct inode *inode, struct file *file)
 {
+    struct si7021_data* si7021_data = file->private_data;
+
+    clear_bit(SI7021_BUSY_BIT_POS, &si7021_data->flags);
     return 0;
 }
 
