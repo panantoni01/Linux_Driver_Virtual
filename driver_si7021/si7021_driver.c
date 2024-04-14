@@ -6,6 +6,13 @@
 
 #define SI7021_MAX_MINORS 2
 
+#define SI7021_CMD_RESET 0xFE
+#define SI7021_CMD_TEMP_MEASURE 0xE3
+#define SI7021_CMD_HUMI_MEASURE 0xE5
+#define SI7021_CMD_READ_ID_1 0xFA0F
+#define SI7021_CMD_READ_ID_2 0xFCC9
+
+
 static int si7021_major;
 static unsigned char si7021_minors[SI7021_MAX_MINORS] = {0};
 static struct class* si7021_class;
