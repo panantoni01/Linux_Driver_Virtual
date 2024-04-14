@@ -3,6 +3,7 @@
 #include <linux/of.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include "si7021_driver.h"
 
 #define SI7021_MAX_MINORS 2
 
@@ -21,8 +22,13 @@ struct si7021_data {
     struct cdev cdev;
     unsigned long flags;
 #define SI7021_BUSY_BIT_POS 0
+    struct i2c_client *client;
 };
 
+/* Si7021 has commands that are 1- or 2-byte long */
+static int si7021_send_cmd(struct i2c_client* client, u16 cmd, int count) {
+    return i2c_master_send(client, (char*)&cmd, count);
+}
 
 static int si7021_open(struct inode *inode, struct file *file)
 {
@@ -48,7 +54,45 @@ static ssize_t si7021_write(struct file *file, const char __user *buf, size_t co
 
 static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
 {
-    return 0;
+    int ret = 0;
+    long long read_id;
+    struct si7021_data* si7021_data = (struct si7021_data*)file->private_data;
+
+    switch(cmd) {
+        case SI7021_IOCTL_RESET:
+            ret = si7021_send_cmd(si7021_data->client, SI7021_CMD_RESET, sizeof(u8));
+            if (ret < 0)
+                goto send_err;
+            break;
+        case SI7021_IOCTL_READ_ID:
+            ret = si7021_send_cmd(si7021_data->client, SI7021_CMD_READ_ID_1, sizeof(u16));
+            if (ret < 0)
+                goto send_err;
+            ret = i2c_master_recv(si7021_data->client, (char *)&read_id, 4);
+            if (ret < 0)
+                goto recv_err;
+
+            ret = si7021_send_cmd(si7021_data->client, SI7021_CMD_READ_ID_2, sizeof(u16));
+            if (ret < 0)
+                goto send_err;
+            ret = i2c_master_recv(si7021_data->client, (char *)&read_id + 4, 4);
+            if (ret < 0)
+                goto recv_err;
+
+            if (copy_to_user((u64*)arg, &read_id, sizeof(long long)))
+                ret = -EFAULT;
+            break;
+        default:
+            ret = -EINVAL;
+    }
+
+    return ret;
+send_err:
+    dev_err(&si7021_data->client->dev, "failed to send data to si7021\n");
+    return ret;
+recv_err:
+    dev_err(&si7021_data->client->dev, "failed to receive data from si7021\n");
+    return ret;
 }
 
 static int si7021_release (struct inode *inode, struct file *file)
@@ -105,6 +149,8 @@ static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *i
         printk(KERN_ERR "si7021_driver: cdev_add failed\n");
         goto err_min_ret;
     }
+
+    data->client = client;
 
     i2c_set_clientdata(client, data);
 
