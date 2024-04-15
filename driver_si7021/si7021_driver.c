@@ -57,25 +57,26 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
     int ret = 0;
     long long read_id;
     struct si7021_data* si7021_data = (struct si7021_data*)file->private_data;
+    struct i2c_client* client = si7021_data->client;
 
     switch(cmd) {
         case SI7021_IOCTL_RESET:
-            ret = si7021_send_cmd(si7021_data->client, SI7021_CMD_RESET, sizeof(u8));
+            ret = si7021_send_cmd(client, SI7021_CMD_RESET, sizeof(u8));
             if (ret < 0)
                 goto send_err;
             break;
         case SI7021_IOCTL_READ_ID:
-            ret = si7021_send_cmd(si7021_data->client, SI7021_CMD_READ_ID_1, sizeof(u16));
+            ret = si7021_send_cmd(client, SI7021_CMD_READ_ID_1, sizeof(u16));
             if (ret < 0)
                 goto send_err;
-            ret = i2c_master_recv(si7021_data->client, (char *)&read_id, 4);
+            ret = i2c_master_recv(client, (char *)&read_id, 4);
             if (ret < 0)
                 goto recv_err;
 
-            ret = si7021_send_cmd(si7021_data->client, SI7021_CMD_READ_ID_2, sizeof(u16));
+            ret = si7021_send_cmd(client, SI7021_CMD_READ_ID_2, sizeof(u16));
             if (ret < 0)
                 goto send_err;
-            ret = i2c_master_recv(si7021_data->client, (char *)&read_id + 4, 4);
+            ret = i2c_master_recv(client, (char *)&read_id + 4, 4);
             if (ret < 0)
                 goto recv_err;
 
@@ -88,10 +89,10 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
 
     return ret;
 send_err:
-    dev_err(&si7021_data->client->dev, "failed to send data to si7021\n");
+    dev_err(&client->dev, "failed to send data to si7021\n");
     return ret;
 recv_err:
-    dev_err(&si7021_data->client->dev, "failed to receive data from si7021\n");
+    dev_err(&client->dev, "failed to receive data from si7021\n");
     return ret;
 }
 
@@ -131,22 +132,23 @@ static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *i
 
     minor = get_si7021_minor();
     if (minor == -1) {
-        printk(KERN_ERR "si7021_driver: reached max number of devices\n");
-        return -EIO;
+        ret = -EIO;
+        dev_err_probe(&client->dev, ret, "reached max number of devices\n");
+        return ret;
     }
     si7021_minors[minor] = 1;
 
     data = devm_kzalloc(&client->dev, sizeof(struct si7021_data), GFP_KERNEL);
     if (!data) {
-        printk(KERN_ERR "si7021_driver: unable to allocate driver data\n");
         ret = -ENOMEM;
+        dev_err_probe(&client->dev, ret, "unable to allocate driver data\n");
         goto err_min_ret;
     }
 
     cdev_init(&data->cdev, &si7021_fops);
     ret = cdev_add(&data->cdev, MKDEV(si7021_major, minor), 1);
     if (ret) {
-        printk(KERN_ERR "si7021_driver: cdev_add failed\n");
+        dev_err_probe(&client->dev, ret, "cdev_add failed\n");
         goto err_min_ret;
     }
 
@@ -154,12 +156,13 @@ static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *i
 
     i2c_set_clientdata(client, data);
 
-    if (IS_ERR(device_create(si7021_class, &client->dev,
+    ret = IS_ERR(device_create(si7021_class, &client->dev,
                              MKDEV(si7021_major, minor), NULL,
-                             "si7021-%u", minor)))
-        printk(KERN_ERR "si7021_driver: cannot create char device\n");
+                             "si7021-%u", minor));
+    if (IS_ERR((void*)ret))
+        dev_err_probe(&client->dev, ret, "cannot create char device\n");
 
-    printk(KERN_INFO"si7021_driver: successful probe of device: %s\n",
+    dev_info(&client->dev, "successful probe of device: %s\n",
                     client->name);
     return 0;
 
@@ -216,7 +219,7 @@ static int __init si7021_init(void)
 
     si7021_class = class_create(THIS_MODULE, "thermal");
     if (IS_ERR(si7021_class)) {
-        printk(KERN_ERR "si7021_driver: cannot create gpio class\n");
+        printk(KERN_ERR "si7021_driver: cannot create si7021 class\n");
         goto err_unreg;
     }
 
@@ -238,7 +241,7 @@ err_unreg:
 
 static void __exit si7021_cleanup(void)
 {
-    printk(KERN_ERR"si7021_driver removal\n");
+    printk(KERN_INFO "si7021_driver removal\n");
 
 	unregister_chrdev_region(si7021_major, SI7021_MAX_MINORS);
     i2c_del_driver(&si7021_driver);
