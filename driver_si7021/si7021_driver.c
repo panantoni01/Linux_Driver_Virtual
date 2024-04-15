@@ -27,6 +27,7 @@ struct si7021_data {
 
 /* Si7021 has commands that are 1- or 2-byte long */
 static int si7021_send_cmd(struct i2c_client* client, u16 cmd, int count) {
+    cmd = (u16 __force)cpu_to_be16(cmd);
     return i2c_master_send(client, (char*)&cmd, count);
 }
 
@@ -55,7 +56,13 @@ static ssize_t si7021_write(struct file *file, const char __user *buf, size_t co
 static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
 {
     int ret = 0;
-    long long read_id;
+    union {
+        long long read_id;
+        struct {
+            unsigned int read_id_low;
+            unsigned int read_id_high;
+        };
+    } read_id;
     struct si7021_data* si7021_data = (struct si7021_data*)file->private_data;
     struct i2c_client* client = si7021_data->client;
 
@@ -69,18 +76,20 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
             ret = si7021_send_cmd(client, SI7021_CMD_READ_ID_1, sizeof(u16));
             if (ret < 0)
                 goto send_err;
-            ret = i2c_master_recv(client, (char *)&read_id, 4);
+            ret = i2c_master_recv(client, (char *)&read_id.read_id_high, 
+                                    sizeof(read_id.read_id_high));
             if (ret < 0)
                 goto recv_err;
 
             ret = si7021_send_cmd(client, SI7021_CMD_READ_ID_2, sizeof(u16));
             if (ret < 0)
                 goto send_err;
-            ret = i2c_master_recv(client, (char *)&read_id + 4, 4);
+            ret = i2c_master_recv(client, (char *)&read_id.read_id_low,
+                                    sizeof(read_id.read_id_low));
             if (ret < 0)
                 goto recv_err;
 
-            if (copy_to_user((u64*)arg, &read_id, sizeof(long long)))
+            if (copy_to_user((u64*)arg, &read_id.read_id, sizeof(read_id.read_id)))
                 ret = -EFAULT;
             break;
         default:
