@@ -3,6 +3,7 @@
 #include <linux/of.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include <linux/delay.h>
 #include "si7021_driver.h"
 
 #define SI7021_MAX_MINORS 2
@@ -153,6 +154,11 @@ static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *i
         dev_err_probe(&client->dev, ret, "unable to allocate driver data\n");
         goto err_min_ret;
     }
+
+    /* reset the device and wait 15ms which is the powerup time 
+    after issuing a software reset command */
+    si7021_send_cmd(client, SI7021_CMD_RESET, sizeof(u8));
+    msleep(15);
 
     cdev_init(&data->cdev, &si7021_fops);
     ret = cdev_add(&data->cdev, MKDEV(si7021_major, minor), 1);
