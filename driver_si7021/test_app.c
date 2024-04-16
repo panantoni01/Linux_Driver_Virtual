@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "si7021_driver.h"
 
 
@@ -17,6 +18,7 @@ static int is_chardev(const char* filename) {
 int main(int argc, const char* argv[]) {
     int fd;
     long long serial_id;
+    struct si7021_result result;
 
     if (argc != 2) {
         fprintf(stderr, "usage: %s <char_dev_file>\n", argv[0]);
@@ -41,6 +43,13 @@ int main(int argc, const char* argv[]) {
     }
     else
         printf("serial id: %lld\n", serial_id);
+
+    if (read(fd, &result, sizeof(result)) < 0) {
+        fprintf(stderr, "si7021: read error\n");
+        exit(1);
+    }
+    printf("temp: %d\n", result.temp);
+    printf("rl_hum: %d\n", result.rl_hum);
 
     return 0;
 }
