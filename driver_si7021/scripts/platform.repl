@@ -54,4 +54,4 @@ si7021_0: Sensors.SI70xx @ i2c0 0x40
 i2c1: I2C.LiteX_I2C @ { sysbus 0xf000a000 }
 
 si7021_1: Sensors.SI70xx @ i2c1 0x40
-    model: Model.SI7021
+    model: Model.SI7006
