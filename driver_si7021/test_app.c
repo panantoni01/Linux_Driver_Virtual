@@ -15,10 +15,24 @@ static int is_chardev(const char* filename) {
     return S_ISCHR(file_stat.st_mode);
 }
 
+static void test_read(int fd) {
+    struct si7021_result result;
+
+    if (read(fd, &result, sizeof(result)) < 0) {
+        fprintf(stderr, "si7021: read error\n");
+        exit(1);
+    }
+
+    assert(result.rl_hum >= 0 && result.rl_hum <= 100);
+    assert(result.temp >= -40 && result.temp <= 125);
+
+    printf("temperature: %d\n", result.temp);
+    printf("rl_humidity: %d\n", result.rl_hum);
+}
+
 int main(int argc, const char* argv[]) {
     int fd;
     long long serial_id;
-    struct si7021_result result;
 
     if (argc != 2) {
         fprintf(stderr, "usage: %s <char_dev_file>\n", argv[0]);
@@ -41,15 +55,9 @@ int main(int argc, const char* argv[]) {
         fprintf(stderr, "si7021: ioctl read_id error\n");
         exit(1);
     }
-    else
-        printf("serial id: %lld\n", serial_id);
+    printf("serial id: %lld\n", serial_id);
 
-    if (read(fd, &result, sizeof(result)) < 0) {
-        fprintf(stderr, "si7021: read error\n");
-        exit(1);
-    }
-    printf("temp: %d\n", result.temp);
-    printf("rl_hum: %d\n", result.rl_hum);
+    test_read(fd);
 
     return 0;
 }
