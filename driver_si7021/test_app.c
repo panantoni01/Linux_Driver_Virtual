@@ -55,7 +55,7 @@ int main(int argc, const char* argv[]) {
         fprintf(stderr, "si7021: ioctl read_id error\n");
         exit(1);
     }
-    printf("serial id: %lld\n", serial_id);
+    printf("serial id: 0x%llx\n", serial_id);
 
     test_read(fd);
 
