@@ -35,6 +35,30 @@ static int si7021_send_cmd(struct i2c_client* client, u16 cmd, unsigned int size
     return i2c_master_send(client, (char*)&cmd, sizeof(cmd));
 }
 
+static int si7021_recv(struct i2c_client* client, char* buf, unsigned int size) {
+    /* Si7021 may return values that are 1-, 2- or 4-byte long 
+    e.g. register value, rl_hum/temp measurement or serial number id */
+    int ret;
+    u16* ptr_16;
+    u32* ptr_32;
+
+    ret = i2c_master_recv(client, buf, size);
+    if (ret < 0)
+        return ret;
+
+    if (size == 2) {
+        ptr_16 = (u16 *)buf;
+        *ptr_16 = be16_to_cpu(( __be16 __force)(*ptr_16));
+    }
+
+    if (size == 4) {
+        ptr_32 = (u32 *)buf;
+        *ptr_32 = be32_to_cpu(( __be32 __force)(*ptr_32));
+    }
+
+    return ret;
+}
+
 /* Helper function to issue a command and store its result in a buffer */
 static int si7021_send_cmd_and_recv(struct i2c_client* client, u16 cmd,
                                     unsigned int cmd_size, char* buf, int size) {
@@ -45,7 +69,7 @@ static int si7021_send_cmd_and_recv(struct i2c_client* client, u16 cmd,
         dev_err(&client->dev, "failed to send data to si7021\n");
         return ret;
     }
-    ret = i2c_master_recv(client, buf, size);
+    ret = si7021_recv(client, buf, size);
     if (ret < 0) {
         dev_err(&client->dev, "failed to receive data from si7021\n");
         return ret;
