@@ -195,7 +195,7 @@ static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *i
     after issuing a software reset command */
     ret = si7021_send_cmd(client, SI7021_CMD_RESET, sizeof(u8));
     if (ret < 0) {
-        dev_err(&client->dev, "failed to send data to si7021\n");
+        dev_err_probe(&client->dev, ret, "failed to send data to si7021\n");
         goto err_min_ret;
     }
     msleep(15);
@@ -298,9 +298,9 @@ static void __exit si7021_cleanup(void)
 {
     printk(KERN_INFO "si7021_driver removal\n");
 
-	unregister_chrdev_region(si7021_major, SI7021_MAX_MINORS);
+    unregister_chrdev_region(si7021_major, SI7021_MAX_MINORS);
     i2c_del_driver(&si7021_driver);
-	class_destroy(si7021_class);
+    class_destroy(si7021_class);
 }
 
 module_init(si7021_init);
