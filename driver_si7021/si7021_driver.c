@@ -110,7 +110,7 @@ static ssize_t si7021_read(struct file *file, char __user *buf, size_t count, lo
         return ret;
 
     /* The relative humidity value must be in range <0,100> */
-    result.rl_hum = clamp_val(result.rl_hum, 3145, 55574);
+    result.rl_hum = clamp_val(result.rl_hum, 3146, 55574);
     result.rl_hum = ((unsigned int)result.rl_hum * 125) / 65536 - 6;
 
     if (copy_to_user(buf, &result, min(count, sizeof(result))))
