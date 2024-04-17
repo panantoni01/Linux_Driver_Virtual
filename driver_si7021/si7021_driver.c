@@ -229,12 +229,10 @@ err_min_ret:
 static int si7021_remove(struct i2c_client *client)
 {
     struct si7021_data* data;
-    struct cdev* cdev;
     unsigned int minor;
 
     data = i2c_get_clientdata(client);
-    cdev = &data->cdev;
-    minor = MINOR(cdev->dev);
+    minor = MINOR(data->cdev.dev);
     
     cdev_del(&data->cdev);
     si7021_minors[minor] = 0;

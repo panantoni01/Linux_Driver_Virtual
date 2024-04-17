@@ -214,12 +214,10 @@ err_min_ret:
 static int calc_driver_remove(struct platform_device *pdev)
 {
     struct calc_device_data* data;
-    struct cdev* cdev;
     unsigned int minor;
 
     data = platform_get_drvdata(pdev);
-    cdev = &data->cdev;
-    minor = MINOR(cdev->dev);
+    minor = MINOR(data->cdev.dev);
     
     cdev_del(&data->cdev);
     calc_minors[minor] = 0;
