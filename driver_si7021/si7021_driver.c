@@ -26,13 +26,18 @@ struct si7021_data {
     struct i2c_client *client;
 };
 
-static int si7021_send_cmd(struct i2c_client* client, u16 cmd, unsigned int size) {
-    /* Si7021 has commands that are 1- or 2-byte long */
-    if (size == 1) 
-        return i2c_master_send(client, (char*)&cmd, size);
+static int si7021_send(struct i2c_client* client, u16 cmd, unsigned int size) {
+    /* The data that we send to Si7021 are 1- or 2-bytes long */
+    int ret;
 
-    cmd = (u16 __force)cpu_to_be16(cmd);
-    return i2c_master_send(client, (char*)&cmd, sizeof(cmd));
+    if (size == 2) 
+        cmd = (u16 __force)cpu_to_be16(cmd);
+
+    ret = i2c_master_send(client, (char*)&cmd, size);
+    if (ret < 0)
+        dev_err(&client->dev, "failed to send data to si7021\n");
+
+    return ret;
 }
 
 static int si7021_recv(struct i2c_client* client, char* buf, unsigned int size) {
@@ -44,14 +49,14 @@ static int si7021_recv(struct i2c_client* client, char* buf, unsigned int size) 
 
     ret = i2c_master_recv(client, buf, size);
     if (ret < 0)
-        return ret;
+        dev_err(&client->dev, "failed to receive data from si7021\n");
 
-    if (size == 2) {
+    else if (size == 2) {
         ptr_16 = (u16 *)buf;
         *ptr_16 = be16_to_cpu(( __be16 __force)(*ptr_16));
     }
 
-    if (size == 4) {
+    else if (size == 4) {
         ptr_32 = (u32 *)buf;
         *ptr_32 = be32_to_cpu(( __be32 __force)(*ptr_32));
     }
@@ -59,24 +64,6 @@ static int si7021_recv(struct i2c_client* client, char* buf, unsigned int size) 
     return ret;
 }
 
-/* Helper function to issue a command and store its result in a buffer */
-static int si7021_send_cmd_and_recv(struct i2c_client* client, u16 cmd,
-                                    unsigned int cmd_size, char* buf, int size) {
-    int ret;
-
-    ret = si7021_send_cmd(client, cmd, cmd_size);
-    if (ret < 0) {
-        dev_err(&client->dev, "failed to send data to si7021\n");
-        return ret;
-    }
-    ret = si7021_recv(client, buf, size);
-    if (ret < 0) {
-        dev_err(&client->dev, "failed to receive data from si7021\n");
-        return ret;
-    }
-
-    return 0;
-}
 
 static int si7021_open(struct inode *inode, struct file *file)
 {
@@ -96,16 +83,20 @@ static ssize_t si7021_read(struct file *file, char __user *buf, size_t count, lo
     struct si7021_result result;
     int ret;
 
-    ret = si7021_send_cmd_and_recv(si7021_data->client, SI7021_CMD_TEMP_MEASURE, sizeof(u8),
-                            (char*)&result.temp, sizeof(result.temp));
+    ret = si7021_send(si7021_data->client, SI7021_CMD_TEMP_MEASURE, sizeof(u8));
+    if (ret < 0)
+        return ret;
+    ret = si7021_recv(si7021_data->client, (char*)&result.temp, sizeof(result.temp));
     if (ret < 0)
         return ret;
 
     result.temp = ((unsigned int)result.temp * 17572) / 65536 - 4685;
     result.temp /= 100;
 
-    ret = si7021_send_cmd_and_recv(si7021_data->client, SI7021_CMD_HUMI_MEASURE, sizeof(u8),
-                            (char*)&result.rl_hum, sizeof(result.rl_hum));
+    ret = si7021_send(si7021_data->client, SI7021_CMD_HUMI_MEASURE, sizeof(u8));
+    if (ret < 0)
+        return ret;
+    ret = si7021_recv(si7021_data->client, (char*)&result.rl_hum, sizeof(result.rl_hum));
     if (ret < 0)
         return ret;
 
@@ -139,20 +130,24 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
 
     switch(cmd) {
         case SI7021_IOCTL_RESET:
-            ret = si7021_send_cmd(client, SI7021_CMD_RESET, sizeof(u8));
+            ret = si7021_send(client, SI7021_CMD_RESET, sizeof(u8));
             if (ret < 0) {
                 dev_err(&client->dev, "failed to send data to si7021\n");
                 return ret;
             }
             break;
         case SI7021_IOCTL_READ_ID:
-            ret = si7021_send_cmd_and_recv(client, SI7021_CMD_READ_ID_1, sizeof(u16),
-                                        (char *)&read_id.read_id_high, sizeof(read_id.read_id_high));
+            ret = si7021_send(client, SI7021_CMD_READ_ID_1, sizeof(u16));
             if (ret < 0)
                 return ret;
+            ret = si7021_recv(client, (char *)&read_id.read_id_high, sizeof(read_id.read_id_high));
+            if (ret < 0)
+                return ret;            
 
-            ret = si7021_send_cmd_and_recv(client, SI7021_CMD_READ_ID_2, sizeof(u16),
-                                        (char *)&read_id.read_id_low, sizeof(read_id.read_id_low));
+            ret = si7021_send(client, SI7021_CMD_READ_ID_2, sizeof(u16));
+            if (ret < 0)
+                return ret;
+            ret = si7021_recv(client, (char *)&read_id.read_id_low, sizeof(read_id.read_id_low));
             if (ret < 0)
                 return ret;
 
@@ -217,7 +212,7 @@ static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *i
 
     /* reset the device and wait 15ms which is the powerup time 
     after issuing a software reset command */
-    ret = si7021_send_cmd(client, SI7021_CMD_RESET, sizeof(u8));
+    ret = si7021_send(client, SI7021_CMD_RESET, sizeof(u8));
     if (ret < 0) {
         dev_err_probe(&client->dev, ret, "failed to send data to si7021\n");
         goto err_min_ret;
