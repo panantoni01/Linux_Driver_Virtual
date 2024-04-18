@@ -1,4 +1,4 @@
-renode_portable
+.renode_libs_fetched
 build
 *.img
 *.cmd

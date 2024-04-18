@@ -25,6 +25,10 @@ build-opensbi:
 		PLATFORM_RISCV_ABI=ilp32 \
 		PLATFORM_RISCV_ISA=rv32ima_zicsr_zifencei
 
+build-renode:
+	git submodule update --init ${RENODE_SOURCE}
+	cd ${RENODE_SOURCE} && bash ./build.sh -o ${RENODE_BUILD} && cd ${TOPDIR}
+
 clean-buildroot:
 	rm -rf ${BUILDROOT_BUILD}
 
@@ -35,8 +39,12 @@ clean-linux:
 clean-opensbi:
 	rm -rf ${OPENSBI_BUILD}
 
+clean-renode:
+	cd ${RENODE_SOURCE} && bash ./build.sh -c && cd ${TOPDIR}
+	rm -rf ${RENODE_BUILD}
+
 clean:
 	rm -rf ${TOPDIR}/build
 
-.PHONY: build-linux build-buildroot build-opensbi build-virtio env
-.PHONY: clean-linux clean-buildroot clean-opensbi clean-virtio clean
+.PHONY: build-linux build-buildroot build-opensbi build-renode env
+.PHONY: clean-linux clean-buildroot clean-opensbi clean-renode clean

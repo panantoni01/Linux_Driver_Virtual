@@ -11,10 +11,12 @@ else
 BUILDROOT_SOURCE ?= ${TOPDIR}/third_party/buildroot
 LINUX_SOURCE     ?= ${TOPDIR}/third_party/linux
 OPENSBI_SOURCE   ?= ${TOPDIR}/third_party/opensbi
+RENODE_SOURCE    ?= ${TOPDIR}/third_party/renode
 
 BUILDROOT_BUILD ?= ${TOPDIR}/build/buildroot
 LINUX_BUILD     ?= ${TOPDIR}/build/linux
 OPENSBI_BUILD   ?= ${TOPDIR}/build/opensbi
+RENODE_BUILD    ?= ${TOPDIR}/build/renode
 endif
 
 export ARCH=riscv
