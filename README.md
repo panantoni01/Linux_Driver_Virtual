@@ -10,7 +10,12 @@ All the drivers can be built and run on a Vexriscv processor that is emulated in
 ## Prerequisites
 
 ### Renode
-According to the [Renode's README](https://github.com/renode/renode/blob/master/README.rst#installation) the following commands can be executed to download the latest Renode version:
+This project uses a customized version of Renode, which is pinned as a submodule. All the prerequisites needed for building Renode from sources are described in the [Renode's documentation](https://renode.readthedocs.io/en/latest/advanced/building_from_sources.html) In order to build it one can use the command:
+```
+make build-renode
+```
+
+Downloading the latest renode tarball is also possible, however this is less recommended since it would result in a limited functionality of some devices that I used in this repository.
 ```
 wget https://dl.antmicro.com/projects/renode/builds/renode-latest.linux-portable.tar.gz
 mkdir renode_portable
@@ -43,7 +48,7 @@ Once all the files are built, one should also create a `virtio` image, which con
 ### Run Renode simulation
 First, start Renode:
 ```
-./renode_portable/renode
+./build/renode/renode
 ```
 Load the selected Renode script:
 ```
