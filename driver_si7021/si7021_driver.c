@@ -13,6 +13,8 @@
 #define SI7021_CMD_HUMI_MEASURE 0xE5
 #define SI7021_CMD_READ_ID_1 0xFA0F
 #define SI7021_CMD_READ_ID_2 0xFCC9
+#define SI7021_CMD_WRITE_USER_REG 0xE6
+#define SI7021_CMD_READ_USER_REG 0xE7
 
 
 static int si7021_major;
@@ -118,6 +120,8 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
     } read_id;
     struct si7021_data* si7021_data = (struct si7021_data*)file->private_data;
     struct i2c_client* client = si7021_data->client;
+    u16 user_reg_cmd;
+    u8 user_reg;
 
     switch(cmd) {
         case SI7021_IOCTL_RESET:
@@ -140,6 +144,21 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
 
             if (copy_to_user((u64*)arg, &read_id.read_id, sizeof(read_id.read_id)))
                 ret = -EFAULT;
+            break;
+        case SI7021_IOCTL_SET_USER_REG:
+            user_reg_cmd = cpu_to_be16((SI7021_CMD_WRITE_USER_REG << 8) | (char)arg);
+            ret = si7021_send(client, (char*)&user_reg_cmd, sizeof(user_reg_cmd));
+            if (ret < 0)
+                return ret;
+            break;
+        case SI7021_IOCTL_GET_USER_REG:
+            ret = si7021_cmd_xfer(client, SI7021_CMD_READ_USER_REG, sizeof(u8),
+                              &user_reg, sizeof(user_reg));
+            if (ret < 0)
+                return ret;
+
+            if (copy_to_user((char*)arg, &user_reg, sizeof(user_reg)))
+                ret = -EFAULT; 
             break;
         default:
             ret = -EINVAL;
