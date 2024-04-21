@@ -9,4 +9,9 @@ struct si7021_result {
     unsigned short rl_hum;
 };
 
+#define SI7021_USER_REG_BIT_HEATER 2
+
+#define SI7021_HEATER_ON(user_reg)  (user_reg |= (1 << SI7021_USER_REG_BIT_HEATER))
+#define SI7021_HEATER_OFF(user_reg) (user_reg &= ~(1 << SI7021_USER_REG_BIT_HEATER))
+
 #endif /* _SI7021_H */
