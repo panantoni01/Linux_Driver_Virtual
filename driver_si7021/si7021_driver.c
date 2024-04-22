@@ -13,6 +13,10 @@
 #define SI7021_CMD_HUMI_MEASURE 0xE5
 #define SI7021_CMD_READ_ID_1 0xFA0F
 #define SI7021_CMD_READ_ID_2 0xFCC9
+#define SI7021_CMD_WRITE_USER_REG 0xE6
+#define SI7021_CMD_READ_USER_REG 0xE7
+#define SI7021_CMD_WRITE_HEATER_REG 0x51
+#define SI7021_CMD_READ_HEATER_REG 0x11
 
 
 static int si7021_major;
@@ -26,56 +30,42 @@ struct si7021_data {
     struct i2c_client *client;
 };
 
-static int si7021_send_cmd(struct i2c_client* client, u16 cmd, unsigned int size) {
-    /* Si7021 has commands that are 1- or 2-byte long */
-    if (size == 1) 
-        return i2c_master_send(client, (char*)&cmd, size);
-
-    cmd = (u16 __force)cpu_to_be16(cmd);
-    return i2c_master_send(client, (char*)&cmd, sizeof(cmd));
-}
-
-static int si7021_recv(struct i2c_client* client, char* buf, unsigned int size) {
-    /* Si7021 may return values that are 1-, 2- or 4-byte long 
-    e.g. register value, rl_hum/temp measurement or serial number id */
-    int ret;
-    u16* ptr_16;
-    u32* ptr_32;
-
-    ret = i2c_master_recv(client, buf, size);
+static int si7021_send(struct i2c_client* client, char* buf, unsigned int size)
+{
+    int ret = i2c_master_send(client, buf, size);
     if (ret < 0)
-        return ret;
-
-    if (size == 2) {
-        ptr_16 = (u16 *)buf;
-        *ptr_16 = be16_to_cpu(( __be16 __force)(*ptr_16));
-    }
-
-    if (size == 4) {
-        ptr_32 = (u32 *)buf;
-        *ptr_32 = be32_to_cpu(( __be32 __force)(*ptr_32));
-    }
-
+        dev_err(&client->dev, "failed to send data to si7021\n");
     return ret;
 }
 
-/* Helper function to issue a command and store its result in a buffer */
-static int si7021_send_cmd_and_recv(struct i2c_client* client, u16 cmd,
-                                    unsigned int cmd_size, char* buf, int size) {
+static int si7021_send_cmd(struct i2c_client* client, u16 cmd, unsigned int size)
+{
+    return si7021_send(client, (char*)&cmd, size);
+}
+
+static int si7021_recv(struct i2c_client* client, char* buf, unsigned int size)
+{
+    int ret = i2c_master_recv(client, buf, size);
+    if (ret < 0)
+        dev_err(&client->dev, "failed to receive data from si7021\n");
+    return ret;
+}
+
+static int si7021_cmd_xfer(struct i2c_client* client, u16 cmd, unsigned int cmd_size,
+                           char* rx_buf, unsigned int rx_size)
+{
     int ret;
 
     ret = si7021_send_cmd(client, cmd, cmd_size);
-    if (ret < 0) {
-        dev_err(&client->dev, "failed to send data to si7021\n");
+    if (ret < 0)
         return ret;
-    }
-    ret = si7021_recv(client, buf, size);
-    if (ret < 0) {
-        dev_err(&client->dev, "failed to receive data from si7021\n");
-        return ret;
-    }
+    return si7021_recv(client, rx_buf, rx_size);
+}
 
-    return 0;
+static int si7021_set_reg_value(struct i2c_client* client, u8 cmd, u8 reg_val)
+{
+    u16 reg_cmd = cpu_to_be16((cmd << 8) | reg_val);
+    return si7021_send(client, (char*)&reg_cmd, sizeof(reg_cmd));
 }
 
 static int si7021_open(struct inode *inode, struct file *file)
@@ -94,21 +84,23 @@ static ssize_t si7021_read(struct file *file, char __user *buf, size_t count, lo
 {
     struct si7021_data* si7021_data = (struct si7021_data*)file->private_data;
     struct si7021_result result;
+    unsigned short temp_raw;
     int ret;
 
-    ret = si7021_send_cmd_and_recv(si7021_data->client, SI7021_CMD_TEMP_MEASURE, sizeof(u8),
-                            (char*)&result.temp, sizeof(result.temp));
+    ret = si7021_cmd_xfer(si7021_data->client, SI7021_CMD_TEMP_MEASURE, sizeof(u8),
+                          (char*)&temp_raw, sizeof(temp_raw));
     if (ret < 0)
         return ret;
 
-    result.temp = ((unsigned int)result.temp * 17572) / 65536 - 4685;
-    result.temp /= 100;
+    temp_raw = be16_to_cpu(temp_raw);
+    result.temp = (((int)temp_raw * 17572) / 65536 - 4685) / 100;
 
-    ret = si7021_send_cmd_and_recv(si7021_data->client, SI7021_CMD_HUMI_MEASURE, sizeof(u8),
-                            (char*)&result.rl_hum, sizeof(result.rl_hum));
+    ret = si7021_cmd_xfer(si7021_data->client, SI7021_CMD_HUMI_MEASURE, sizeof(u8),
+                          (char*)&result.rl_hum, sizeof(result.rl_hum));
     if (ret < 0)
         return ret;
 
+    result.rl_hum = be16_to_cpu(result.rl_hum);
     /* The relative humidity value must be in range <0,100> */
     result.rl_hum = clamp_val(result.rl_hum, 3146, 55574);
     result.rl_hum = ((unsigned int)result.rl_hum * 125) / 65536 - 6;
@@ -136,28 +128,53 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
     } read_id;
     struct si7021_data* si7021_data = (struct si7021_data*)file->private_data;
     struct i2c_client* client = si7021_data->client;
+    u8 reg;
 
     switch(cmd) {
         case SI7021_IOCTL_RESET:
             ret = si7021_send_cmd(client, SI7021_CMD_RESET, sizeof(u8));
-            if (ret < 0) {
-                dev_err(&client->dev, "failed to send data to si7021\n");
+            if (ret < 0)
                 return ret;
-            }
             break;
         case SI7021_IOCTL_READ_ID:
-            ret = si7021_send_cmd_and_recv(client, SI7021_CMD_READ_ID_1, sizeof(u16),
-                                        (char *)&read_id.read_id_high, sizeof(read_id.read_id_high));
+            ret = si7021_cmd_xfer(client, cpu_to_be16(SI7021_CMD_READ_ID_1), sizeof(u16),
+                                  (char *)&read_id.read_id_high, sizeof(read_id.read_id_high));
             if (ret < 0)
                 return ret;
+            read_id.read_id_high = be32_to_cpu(read_id.read_id_high);
 
-            ret = si7021_send_cmd_and_recv(client, SI7021_CMD_READ_ID_2, sizeof(u16),
-                                        (char *)&read_id.read_id_low, sizeof(read_id.read_id_low));
+            ret = si7021_cmd_xfer(client, cpu_to_be16(SI7021_CMD_READ_ID_2), sizeof(u16),
+                                  (char *)&read_id.read_id_low, sizeof(read_id.read_id_low));
             if (ret < 0)
                 return ret;
+            read_id.read_id_low = be32_to_cpu(read_id.read_id_low);
 
             if (copy_to_user((u64*)arg, &read_id.read_id, sizeof(read_id.read_id)))
                 ret = -EFAULT;
+            break;
+        case SI7021_IOCTL_SET_USER_REG:
+            ret = si7021_set_reg_value(client, SI7021_CMD_WRITE_USER_REG, arg);
+            break;
+        case SI7021_IOCTL_GET_USER_REG:
+            ret = si7021_cmd_xfer(client, SI7021_CMD_READ_USER_REG, sizeof(u8),
+                              &reg, sizeof(reg));
+            if (ret < 0)
+                return ret;
+
+            if (copy_to_user((char*)arg, &reg, sizeof(reg)))
+                ret = -EFAULT; 
+            break;
+        case SI7021_IOCTL_SET_HEATER_REG:
+            ret = si7021_set_reg_value(client, SI7021_CMD_WRITE_HEATER_REG, arg);
+            break;
+        case SI7021_IOCTL_GET_HEATER_REG:
+            ret = si7021_cmd_xfer(client, SI7021_CMD_READ_HEATER_REG, sizeof(u8),
+                              &reg, sizeof(reg));
+            if (ret < 0)
+                return ret;
+
+            if (copy_to_user((char*)arg, &reg, sizeof(reg)))
+                ret = -EFAULT; 
             break;
         default:
             ret = -EINVAL;
@@ -218,10 +235,8 @@ static int si7021_probe(struct i2c_client *client, const struct i2c_device_id *i
     /* reset the device and wait 15ms which is the powerup time 
     after issuing a software reset command */
     ret = si7021_send_cmd(client, SI7021_CMD_RESET, sizeof(u8));
-    if (ret < 0) {
-        dev_err_probe(&client->dev, ret, "failed to send data to si7021\n");
+    if (ret < 0)
         goto err_min_ret;
-    }
     msleep(15);
 
     cdev_init(&data->cdev, &si7021_fops);
