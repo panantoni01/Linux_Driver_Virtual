@@ -15,6 +15,8 @@
 #define SI7021_CMD_READ_ID_2 0xFCC9
 #define SI7021_CMD_WRITE_USER_REG 0xE6
 #define SI7021_CMD_READ_USER_REG 0xE7
+#define SI7021_CMD_WRITE_HEATER_REG 0x51
+#define SI7021_CMD_READ_HEATER_REG 0x11
 
 
 static int si7021_major;
@@ -58,6 +60,12 @@ static int si7021_cmd_xfer(struct i2c_client* client, u16 cmd, unsigned int cmd_
     if (ret < 0)
         return ret;
     return si7021_recv(client, rx_buf, rx_size);
+}
+
+static int si7021_set_reg_value(struct i2c_client* client, u8 cmd, u8 reg_val)
+{
+    u16 reg_cmd = cpu_to_be16((cmd << 8) | reg_val);
+    return si7021_send(client, (char*)&reg_cmd, sizeof(reg_cmd));
 }
 
 static int si7021_open(struct inode *inode, struct file *file)
@@ -120,8 +128,7 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
     } read_id;
     struct si7021_data* si7021_data = (struct si7021_data*)file->private_data;
     struct i2c_client* client = si7021_data->client;
-    u16 user_reg_cmd;
-    u8 user_reg;
+    u8 reg;
 
     switch(cmd) {
         case SI7021_IOCTL_RESET:
@@ -146,18 +153,27 @@ static long si7021_ioctl (struct file *file, unsigned int cmd, unsigned long arg
                 ret = -EFAULT;
             break;
         case SI7021_IOCTL_SET_USER_REG:
-            user_reg_cmd = cpu_to_be16((SI7021_CMD_WRITE_USER_REG << 8) | (char)arg);
-            ret = si7021_send(client, (char*)&user_reg_cmd, sizeof(user_reg_cmd));
-            if (ret < 0)
-                return ret;
+            ret = si7021_set_reg_value(client, SI7021_CMD_WRITE_USER_REG, arg);
             break;
         case SI7021_IOCTL_GET_USER_REG:
             ret = si7021_cmd_xfer(client, SI7021_CMD_READ_USER_REG, sizeof(u8),
-                              &user_reg, sizeof(user_reg));
+                              &reg, sizeof(reg));
             if (ret < 0)
                 return ret;
 
-            if (copy_to_user((char*)arg, &user_reg, sizeof(user_reg)))
+            if (copy_to_user((char*)arg, &reg, sizeof(reg)))
+                ret = -EFAULT; 
+            break;
+        case SI7021_IOCTL_SET_HEATER_REG:
+            ret = si7021_set_reg_value(client, SI7021_CMD_WRITE_HEATER_REG, arg);
+            break;
+        case SI7021_IOCTL_GET_HEATER_REG:
+            ret = si7021_cmd_xfer(client, SI7021_CMD_READ_HEATER_REG, sizeof(u8),
+                              &reg, sizeof(reg));
+            if (ret < 0)
+                return ret;
+
+            if (copy_to_user((char*)arg, &reg, sizeof(reg)))
                 ret = -EFAULT; 
             break;
         default:
