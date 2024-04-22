@@ -84,16 +84,16 @@ static ssize_t si7021_read(struct file *file, char __user *buf, size_t count, lo
 {
     struct si7021_data* si7021_data = (struct si7021_data*)file->private_data;
     struct si7021_result result;
+    unsigned short temp_raw;
     int ret;
 
     ret = si7021_cmd_xfer(si7021_data->client, SI7021_CMD_TEMP_MEASURE, sizeof(u8),
-                          (char*)&result.temp, sizeof(result.temp));
+                          (char*)&temp_raw, sizeof(temp_raw));
     if (ret < 0)
         return ret;
 
-    result.temp = be16_to_cpu(result.temp);
-    result.temp = ((unsigned int)result.temp * 17572) / 65536 - 4685;
-    result.temp /= 100;
+    temp_raw = be16_to_cpu(temp_raw);
+    result.temp = (((int)temp_raw * 17572) / 65536 - 4685) / 100;
 
     ret = si7021_cmd_xfer(si7021_data->client, SI7021_CMD_HUMI_MEASURE, sizeof(u8),
                           (char*)&result.rl_hum, sizeof(result.rl_hum));
