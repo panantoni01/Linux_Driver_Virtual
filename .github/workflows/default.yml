@@ -3,11 +3,21 @@ name: Linux Virtual Driver
 on: [push, pull_request]
 
 jobs:
+  verify_format:
+    name: Verify code format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update && sudo apt-get install -y clang-format-14
+          ./verify-format.sh
+
   build:
     name: Builds
     strategy:
       matrix:
         driver_dir: [driver_calc, driver_litex_gpio, driver_si7021]
+    needs: [ verify_format ]
     runs-on: ubuntu-latest
     container: panantoni01/linux-drivers:squashed
     steps:
