@@ -1,0 +1,2 @@
+obj-m := si7210_driver.o
+
