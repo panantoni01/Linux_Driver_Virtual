@@ -38,12 +38,19 @@
 #define SI7020CMD_USR_WRITE 0xE6
 /* "Heater Enabled" bit in the User Register */
 #define SI7020_USR_HTRE		BIT(2)
+/* Write Heater Register */
+#define SI7020CMD_HTR_WRITE 0x51
+/* Heater current configuration bits */
+#define SI7020_HTR_HEATER	GENMASK(3, 0)
 
 struct si7020_data {
 	struct i2c_client *client;
 	struct mutex lock;
 	u8 user_reg;
+	u8 heater_reg;
 };
+
+static const int si7020_heater_vals[] = {0, 1, 0xF};
 
 static int si7020_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan, int *val,
@@ -54,6 +61,10 @@ static int si7020_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
+		if (chan->type == IIO_CURRENT) {
+			*val = data->heater_reg;
+			return IIO_VAL_INT;
+		}
 		ret = i2c_smbus_read_word_swapped(data->client,
 						  chan->type == IIO_TEMP ?
 						  SI7020CMD_TEMP_HOLD :
@@ -107,19 +118,63 @@ static const struct iio_chan_spec si7020_channels[] = {
 		.type = IIO_TEMP,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 			BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+	},
+	{
+		.type = IIO_CURRENT,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_RAW),
+		.extend_name = "heater",
 	}
 };
 
-static int si7020_update_user_reg(struct si7020_data *data, u8 mask, u8 val)
+static int si7020_update_reg(struct si7020_data *data,
+				u8 *reg, u8 cmd, u8 mask, u8 val)
 {
-	u8 new = (data->user_reg & ~mask) | val;
+	u8 new = (*reg & ~mask) | val;
 	int ret;
 
-	ret = i2c_smbus_write_byte_data(data->client, SI7020CMD_USR_WRITE, new);
+	ret = i2c_smbus_write_byte_data(data->client, cmd, new);
 	if (!ret)
-		data->user_reg = new;
+		*reg = new;
 
 	return ret;
+}
+
+static int si7020_write_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     int val, int val2, long mask)
+{
+	struct si7020_data *data = iio_priv(indio_dev);
+	int ret = -EINVAL;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		if (chan->type != IIO_CURRENT || val2 != 0 ||
+			val < si7020_heater_vals[0] || val > si7020_heater_vals[2])
+			return -EINVAL;
+
+		mutex_lock(&data->lock);
+		ret = si7020_update_reg(data, &data->heater_reg, SI7020CMD_HTR_WRITE,
+													SI7020_HTR_HEATER, val);
+		mutex_unlock(&data->lock);
+		return ret;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int si7020_read_available(struct iio_dev *indio_dev,
+				  struct iio_chan_spec const *chan,
+				  const int **vals,
+				  int *type, int *length, long mask)
+{
+	if (mask != IIO_CHAN_INFO_RAW || chan->type != IIO_CURRENT)
+		return -EINVAL;
+
+	*vals = si7020_heater_vals;
+	*type = IIO_VAL_INT;
+
+	return IIO_AVAIL_RANGE;
 }
 
 static ssize_t si7020_show_heater_en(struct device *dev,
@@ -145,7 +200,8 @@ static ssize_t si7020_store_heater_en(struct device *dev,
 		return ret;
 
 	mutex_lock(&data->lock);
-	ret = si7020_update_user_reg(data, SI7020_USR_HTRE, val ? SI7020_USR_HTRE : 0);
+	ret = si7020_update_reg(data, &data->user_reg, SI7020CMD_USR_WRITE,
+					SI7020_USR_HTRE, val ? SI7020_USR_HTRE : 0);
 	mutex_unlock(&data->lock);
 
 	return ret < 0 ? ret : len;
@@ -165,6 +221,8 @@ static const struct attribute_group si7020_attribute_group = {
 
 static const struct iio_info si7020_info = {
 	.read_raw = si7020_read_raw,
+	.write_raw = si7020_write_raw,
+	.read_avail = si7020_read_available,
 	.attrs = &si7020_attribute_group,
 };
 
