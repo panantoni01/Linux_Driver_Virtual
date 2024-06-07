@@ -29,17 +29,17 @@
 #include <linux/iio/sysfs.h>
 
 /* Measure Relative Humidity, Hold Master Mode */
-#define SI7020CMD_RH_HOLD	0xE5
+#define SI7020CMD_RH_HOLD 0xE5
 /* Measure Temperature, Hold Master Mode */
-#define SI7020CMD_TEMP_HOLD	0xE3
+#define SI7020CMD_TEMP_HOLD 0xE3
 /* Software Reset */
-#define SI7020CMD_RESET		0xFE
-#define SI7020CMD_USR_WRITE	0xE6
+#define SI7020CMD_RESET 0xFE
+#define SI7020CMD_USR_WRITE 0xE6
 /* "Heater Enabled" bit in the User Register */
-#define SI7020_USR_HEATER_EN	BIT(2)
-#define SI7020CMD_HEATER_WRITE	0x51
+#define SI7020_USR_HEATER_EN BIT(2)
+#define SI7020CMD_HEATER_WRITE 0x51
 /* Heater current configuration bits */
-#define SI7020_HEATER_VAL	GENMASK(3, 0)
+#define SI7020_HEATER_VAL GENMASK(3, 0)
 
 struct si7020_data {
 	struct i2c_client *client;
@@ -67,8 +67,8 @@ static int si7020_read_raw(struct iio_dev *indio_dev,
 
 		ret = i2c_smbus_read_word_swapped(data->client,
 						  chan->type == IIO_TEMP ?
-						  SI7020CMD_TEMP_HOLD :
-						  SI7020CMD_RH_HOLD);
+							  SI7020CMD_TEMP_HOLD :
+							  SI7020CMD_RH_HOLD);
 		if (ret < 0)
 			return ret;
 		*val = ret >> 2;
@@ -112,12 +112,14 @@ static const struct iio_chan_spec si7020_channels[] = {
 	{
 		.type = IIO_HUMIDITYRELATIVE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-			BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+				      BIT(IIO_CHAN_INFO_SCALE) |
+				      BIT(IIO_CHAN_INFO_OFFSET),
 	},
 	{
 		.type = IIO_TEMP,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-			BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET),
+				      BIT(IIO_CHAN_INFO_SCALE) |
+				      BIT(IIO_CHAN_INFO_OFFSET),
 	},
 	{
 		.type = IIO_CURRENT,
@@ -127,8 +129,8 @@ static const struct iio_chan_spec si7020_channels[] = {
 	}
 };
 
-static int si7020_update_reg(struct si7020_data *data,
-				u8 *reg, u8 cmd, u8 mask, u8 val)
+static int si7020_update_reg(struct si7020_data *data, u8 *reg, u8 cmd, u8 mask,
+			     u8 val)
 {
 	u8 new = (*reg & ~mask) | val;
 	int ret;
@@ -143,8 +145,8 @@ static int si7020_update_reg(struct si7020_data *data,
 }
 
 static int si7020_write_raw(struct iio_dev *indio_dev,
-			     struct iio_chan_spec const *chan,
-			     int val, int val2, long mask)
+			    struct iio_chan_spec const *chan, int val, int val2,
+			    long mask)
 {
 	struct si7020_data *data = iio_priv(indio_dev);
 	int ret;
@@ -152,23 +154,24 @@ static int si7020_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		if (chan->type != IIO_CURRENT || val2 != 0 ||
-			val < si7020_heater_vals[0] || val > si7020_heater_vals[2])
+		    val < si7020_heater_vals[0] || val > si7020_heater_vals[2])
 			return -EINVAL;
 
 		mutex_lock(&data->lock);
 		ret = si7020_update_reg(data, &data->heater_reg,
-				SI7020CMD_HEATER_WRITE, SI7020_HEATER_VAL, val);
+					SI7020CMD_HEATER_WRITE,
+					SI7020_HEATER_VAL, val);
 		mutex_unlock(&data->lock);
-    return ret;
+		return ret;
 	default:
 		return -EINVAL;
 	}
 }
 
 static int si7020_read_available(struct iio_dev *indio_dev,
-				  struct iio_chan_spec const *chan,
-				  const int **vals,
-				  int *type, int *length, long mask)
+				 struct iio_chan_spec const *chan,
+				 const int **vals, int *type, int *length,
+				 long mask)
 {
 	if (mask != IIO_CHAN_INFO_RAW || chan->type != IIO_CURRENT)
 		return -EINVAL;
@@ -180,17 +183,18 @@ static int si7020_read_available(struct iio_dev *indio_dev,
 }
 
 static ssize_t si7020_show_heater_en(struct device *dev,
-				 struct device_attribute *attr, char *buf)
+				     struct device_attribute *attr, char *buf)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct si7020_data *data = iio_priv(indio_dev);
 
-	return sysfs_emit(buf, "%d\n", !!(data->user_reg & SI7020_USR_HEATER_EN));
+	return sysfs_emit(buf, "%d\n",
+			  !!(data->user_reg & SI7020_USR_HEATER_EN));
 }
 
 static ssize_t si7020_store_heater_en(struct device *dev,
-				  struct device_attribute *attr,
-				  const char *buf, size_t len)
+				      struct device_attribute *attr,
+				      const char *buf, size_t len)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct si7020_data *data = iio_priv(indio_dev);
@@ -203,18 +207,18 @@ static ssize_t si7020_store_heater_en(struct device *dev,
 
 	mutex_lock(&data->lock);
 	ret = si7020_update_reg(data, &data->user_reg, SI7020CMD_USR_WRITE,
-			SI7020_USR_HEATER_EN, val ? SI7020_USR_HEATER_EN : 0);
+				SI7020_USR_HEATER_EN,
+				val ? SI7020_USR_HEATER_EN : 0);
 	mutex_unlock(&data->lock);
 
 	return ret < 0 ? ret : len;
 }
 
-static IIO_DEVICE_ATTR(heater_enable, 0644,
-		       si7020_show_heater_en, si7020_store_heater_en, 0);
+static IIO_DEVICE_ATTR(heater_enable, 0644, si7020_show_heater_en,
+		       si7020_store_heater_en, 0);
 
 static struct attribute *si7020_attributes[] = {
-	&iio_dev_attr_heater_enable.dev_attr.attr,
-	NULL
+	&iio_dev_attr_heater_enable.dev_attr.attr, NULL
 };
 
 static const struct attribute_group si7020_attribute_group = {
@@ -228,7 +232,8 @@ static const struct iio_info si7020_info = {
 	.attrs = &si7020_attribute_group,
 };
 
-static int si7020_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int si7020_probe(struct i2c_client *client,
+			const struct i2c_device_id *id)
 {
 	struct iio_dev *indio_dev;
 	struct si7020_data *data;
@@ -236,7 +241,7 @@ static int si7020_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_WRITE_BYTE |
-				     I2C_FUNC_SMBUS_READ_WORD_DATA))
+					     I2C_FUNC_SMBUS_READ_WORD_DATA))
 		return -EOPNOTSUPP;
 
 	/* Reset device, loads default settings. */
@@ -268,16 +273,14 @@ static int si7020_probe(struct i2c_client *client, const struct i2c_device_id *i
 	return devm_iio_device_register(&client->dev, indio_dev);
 }
 
-static const struct i2c_device_id si7020_id[] = {
-	{ "si7020", 0 },
-	{ "th06", 0 },
-	{ }
-};
+static const struct i2c_device_id si7020_id[] = { { "si7020", 0 },
+						  { "th06", 0 },
+						  {} };
 MODULE_DEVICE_TABLE(i2c, si7020_id);
 
 static const struct of_device_id si7020_dt_ids[] = {
 	{ .compatible = "silabs,si7020" },
-	{ }
+	{}
 };
 MODULE_DEVICE_TABLE(of, si7020_dt_ids);
 
@@ -291,6 +294,7 @@ static struct i2c_driver si7020_driver = {
 };
 
 module_i2c_driver(si7020_driver);
-MODULE_DESCRIPTION("Silicon Labs Si7013/20/21 Relative Humidity and Temperature Sensors");
+MODULE_DESCRIPTION(
+	"Silicon Labs Si7013/20/21 Relative Humidity and Temperature Sensors");
 MODULE_AUTHOR("David Barksdale <dbarksdale@uplogix.com>");
 MODULE_LICENSE("GPL");
