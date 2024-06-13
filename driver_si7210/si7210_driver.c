@@ -9,21 +9,36 @@
  */
 
 #include <linux/module.h>
+#include <linux/i2c.h>
 
-static int __init si7210_init(void)
+static int si7210_probe(struct i2c_client *client,
+			const struct i2c_device_id *id)
 {
-	printk(KERN_INFO "s7210_driver registration\n");
 	return 0;
 }
 
-static void __exit si7210_cleanup(void)
-{
-	printk(KERN_INFO "si7210_driver removal\n");
-}
+static const struct i2c_device_id si7210_id[] = {
+	{ "si7210", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(i2c, si7210_id);
 
-module_init(si7210_init);
-module_exit(si7210_cleanup);
+static const struct of_device_id si7210_dt_ids[] = {
+	{ .compatible = "silabs,si7210" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, si7210_dt_ids);
 
+static struct i2c_driver si7210_driver = {
+	.driver = {
+		.name = "si7210",
+		.of_match_table = si7210_dt_ids,
+	},
+	.probe		= si7210_probe,
+	.id_table	= si7210_id,
+};
+
+module_i2c_driver(si7210_driver);
 MODULE_AUTHOR("Antoni Pokusinski <apokusinski@o2.pl>");
 MODULE_DESCRIPTION("Silicon Labs Si7210 Hall Effect sensor I2C driver");
 MODULE_LICENSE("GPL v2");
