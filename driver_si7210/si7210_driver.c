@@ -10,11 +10,33 @@
 
 #include <linux/module.h>
 #include <linux/i2c.h>
+#include <linux/iio/iio.h>
 
 static int si7210_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	return 0;
+	struct i2c_client **data;
+	struct iio_dev *indio_dev;
+
+	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
+	if (!indio_dev)
+		return -ENOMEM;
+
+	data = iio_priv(indio_dev);
+	*data = client;
+
+	indio_dev->name = dev_name(&client->dev);
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	/* TODO: define struct iio_info */
+	indio_dev->info = NULL;
+	/* TODO: define temp and magnetic channels */
+	indio_dev->channels = NULL;
+	/* TODO: set this to the length of `channels` */
+	indio_dev->num_channels = 0;
+
+	/* TODO: configure the chip to the default state */
+
+	return devm_iio_device_register(&client->dev, indio_dev);
 }
 
 static const struct i2c_device_id si7210_id[] = {
