@@ -12,6 +12,19 @@
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 
+static const struct iio_chan_spec si7210_channels[] = {
+	{
+		.type = IIO_MAGN,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+			BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET)
+	},
+	{
+		.type = IIO_TEMP,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+			BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_OFFSET)
+	}
+};
+
 static int si7210_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -29,10 +42,8 @@ static int si7210_probe(struct i2c_client *client,
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	/* TODO: define struct iio_info */
 	indio_dev->info = NULL;
-	/* TODO: define temp and magnetic channels */
-	indio_dev->channels = NULL;
-	/* TODO: set this to the length of `channels` */
-	indio_dev->num_channels = 0;
+	indio_dev->channels = si7210_channels;
+	indio_dev->num_channels = ARRAY_SIZE(si7210_channels);
 
 	/* TODO: configure the chip to the default state */
 
