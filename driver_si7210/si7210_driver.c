@@ -12,6 +12,12 @@
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 
+struct si7210_data {
+	struct i2c_client* client;
+	u8 temp_offset;
+	u8 temp_gain;
+};
+
 static const struct iio_chan_spec si7210_channels[] = {
 	{
 		.type = IIO_MAGN,
@@ -25,18 +31,30 @@ static const struct iio_chan_spec si7210_channels[] = {
 	}
 };
 
+static int si7210_device_init(struct si7210_data *data)
+{
+	/* TODO: use regmap to read gain and offset values and place them in `data` */
+
+	/* TODO: wake up from possible sleep mode */
+
+	/* TODO: sleep 1 ms before starting the measurements */
+	return 0;
+}
+
 static int si7210_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	struct i2c_client **data;
+	struct si7210_data *data;
 	struct iio_dev *indio_dev;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
 		return -ENOMEM;
 
 	data = iio_priv(indio_dev);
-	*data = client;
+	i2c_set_clientdata(client, indio_dev);
+	data->client = client;
 
 	indio_dev->name = dev_name(&client->dev);
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -45,7 +63,9 @@ static int si7210_probe(struct i2c_client *client,
 	indio_dev->channels = si7210_channels;
 	indio_dev->num_channels = ARRAY_SIZE(si7210_channels);
 
-	/* TODO: configure the chip to the default state */
+	ret = si7210_device_init(data);
+	if (ret)
+		return dev_err_probe(&client->dev, ret, "device initialization failed\n");
 
 	return devm_iio_device_register(&client->dev, indio_dev);
 }
