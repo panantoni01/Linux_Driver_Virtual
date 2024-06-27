@@ -87,6 +87,32 @@ static const struct iio_chan_spec si7210_channels[] = {
 	}
 };
 
+static int si7210_read_otpreg_val(struct si7210_data *data, unsigned int otpreg, unsigned int* val)
+{
+	unsigned int reg_otp_ctrl;
+	int ret;
+
+	ret = regmap_write(data->regmap, SI7210_REG_OTP_ADDR, otpreg);
+	if (ret < 0)
+		return ret;
+
+	/* "When writing a particular bit field, it is best to use a read, modify, write
+	procedure to ensure that other bit fields are not unintentionally changed."*/
+	ret = regmap_read(data->regmap, SI7210_REG_OTP_CTRL, &reg_otp_ctrl);
+	if (ret < 0)
+		return ret;
+	ret = regmap_write(data->regmap, SI7210_REG_OTP_CTRL,
+			reg_otp_ctrl | SI7210_BIT_OTP_READ_EN);
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_read(data->regmap, SI7210_REG_OTP_DATA, val);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int si7210_device_init(struct si7210_data *data)
 {
 	/* TODO: use regmap to read gain and offset values and place them in `data` */
