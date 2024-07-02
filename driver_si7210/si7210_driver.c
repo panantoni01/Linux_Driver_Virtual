@@ -87,7 +87,7 @@ static const struct iio_chan_spec si7210_channels[] = {
 	}
 };
 
-static int si7210_read_otpreg_val(struct si7210_data *data, unsigned int otpreg, unsigned int* val)
+static int si7210_read_otpreg_val(struct si7210_data *data, unsigned int otpreg, u8* val)
 {
 	unsigned int reg_otp_ctrl;
 	int ret;
@@ -106,20 +106,46 @@ static int si7210_read_otpreg_val(struct si7210_data *data, unsigned int otpreg,
 	if (ret < 0)
 		return ret;
 
-	ret = regmap_read(data->regmap, SI7210_REG_OTP_DATA, val);
+	ret = regmap_read(data->regmap, SI7210_REG_OTP_DATA, (unsigned int *)val);
 	if (ret < 0)
 		return ret;
 
 	return 0;
 }
 
+static int si7210_device_wake(struct si7210_data *data)
+{
+	/* According to the datasheet, the primary method to wake up a device is
+	to send an empty write. However this is not feasible using current API so we
+	use the other method i.e. read a single byte. The device should respond with 0xFF */
+
+	int ret = 0;
+
+	ret = i2c_smbus_read_byte(data->client);
+	if (ret < 0)
+		return ret;
+
+	if ((u8)ret != 0xFF)
+		return -EIO;
+
+	return 0;
+}
+
 static int si7210_device_init(struct si7210_data *data)
 {
-	/* TODO: use regmap to read gain and offset values and place them in `data` */
+	int ret;
 
-	/* TODO: wake up from possible sleep mode */
+	ret = si7210_read_otpreg_val(data, SI7210_OTPREG_TMP_GAIN, &data->temp_gain);
+	if (ret < 0)
+		return 0;
+	ret = si7210_read_otpreg_val(data, SI7210_OTPREG_TMP_OFF, &data->temp_offset);
+	if (ret < 0)
+		return 0;
 
-	/* TODO: sleep 1 ms before starting the measurements */
+	si7210_device_wake(data);
+
+	msleep(1);
+
 	return 0;
 }
 
